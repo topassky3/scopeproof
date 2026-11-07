@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.forge/
+.env
+.env.*
+!.env.example
+*.log
+.vscode/
+.DS_Store

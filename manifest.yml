@@ -1,0 +1,31 @@
+modules:
+  jira:projectPage:
+    - key: scopeproof-project
+      title: Scopeproof
+      resource: frontend
+      resolver:
+        function: main-resolver
+      layout: native
+  jira:issuePanel:
+    - key: scopeproof-issue
+      title: Scopeproof Evidence
+      resource: frontend
+      resolver:
+        function: main-resolver
+  function:
+    - key: main-resolver
+      handler: index.handler
+resources:
+  - key: frontend
+    path: dist
+permissions:
+  scopes:
+    - read:jira-work
+    - storage:app
+app:
+  # Replace this placeholder by running `forge register Scopeproof` ONCE.
+  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  runtime:
+    name: nodejs24.x
+    memoryMB: 256
+    architecture: arm64
