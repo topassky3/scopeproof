@@ -54,6 +54,8 @@ gh repo create topassky3/scopeproof --public --source . --remote origin --push
 
 The repository will be public; do not commit API tokens, secrets or private user data. To work together, invite your teammate through GitHub repository settings once their GitHub username is known.
 
+For the shared component architecture and design implementation plan, see [`docs/SHARED_UI.md`](docs/SHARED_UI.md).
+
 ## Navigation
 
 - **Overview / Reviews** — active review, status and coverage.
