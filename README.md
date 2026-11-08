@@ -56,6 +56,10 @@ The repository will be public; do not commit API tokens, secrets or private user
 
 For the shared component architecture and design implementation plan, see [`docs/SHARED_UI.md`](docs/SHARED_UI.md).
 
+## Frontend architecture
+
+The UI uses a **feature-first** structure: reusable layout, components, types, and styles live in `src/shared/`; each screen lives in `src/features/<name>/`; the Forge/local preview coordinator lives in `src/app/`. See [`docs/FEATURE_ARCHITECTURE.md`](docs/FEATURE_ARCHITECTURE.md).
+
 ## Navigation
 
 - **Overview / Reviews** — active review, status and coverage.
