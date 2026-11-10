@@ -1,0 +1,4 @@
+Django>=5.2.19,<5.3
+PyJWT[crypto]>=2.10,<3
+requests>=2.32,<3
+# PostgreSQL production driver: pip install "psycopg[binary]>=3.2,<4"
