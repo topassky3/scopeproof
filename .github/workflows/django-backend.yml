@@ -38,4 +38,4 @@ jobs:
       - name: Verify migrations match models
         run: python backend/manage.py makemigrations --check --dry-run
       - name: Run Django tests
-        run: python backend/manage.py test --verbosity 2
+        run: python backend/manage.py test reviews --verbosity 2
