@@ -20,17 +20,17 @@ test('each main screen has a feature module, and React bootstrapping stays minim
     'features/overview/OverviewPage.tsx', 'features/reviews/ReviewsPage.tsx',
     'features/requirements/RequirementsPage.tsx', 'features/evidence/EvidencePage.tsx',
     'features/history/HistoryPage.tsx', 'features/reports/ReportsPage.tsx',
-    'features/settings/SettingsPage.tsx',
+    'features/settings/SettingsPage.tsx', 'features/auth/LoginPage.tsx',
   ]) assert.ok(existsSync(resolve(root, path)), `Missing ${path}`);
   const entry = read('main.tsx');
-  assert.match(entry, /import \{ App \} from '\.\/app\/App'/);
+  assert.match(entry, /import \{ Entry \} from '\.\/app\/Entry'/);
   assert.doesNotMatch(entry, /applyCommand|summarize|fetchReview/);
 });
 
 test('relative TS/TSX imports resolve without broken paths', () => {
   // Enumerate the newly refactored source files rather than requiring TS runtime support.
   const files = [
-    'main.tsx', 'app/App.tsx', 'shared/layout/AppShell.tsx',
+    'main.tsx', 'app/App.tsx', 'app/Entry.tsx', 'features/auth/LoginPage.tsx', 'shared/layout/AppShell.tsx',
     'shared/components/ui.tsx', 'shared/config/navigation.ts',
     ...['overview/OverviewPage', 'reviews/ReviewsPage', 'reviews/ReviewWorkspace',
       'requirements/RequirementsPage', 'evidence/EvidencePage',
