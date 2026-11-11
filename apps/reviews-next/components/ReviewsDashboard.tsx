@@ -6,7 +6,7 @@ import {
   FileCheck2, GitCompareArrows, History, RefreshCw, RotateCcw, Search, ShieldCheck,
 } from 'lucide-react';
 import {
-  applyPreviewCommand, buildReviewList, canApprove, deriveReview,
+  applyPreviewCommand, approvalAvailable, buildHistoryEntries, buildReviewList, canApprove, deriveReview,
   filterReviewList, makeDemoReview, reviewMetrics,
 } from '../lib/review-model.mjs';
 import type { ReviewData, ReviewListItem, ReviewResponse, ReviewState, ReviewSummary } from '../lib/types';
@@ -130,8 +130,10 @@ export function ReviewsDashboard() {
 
   async function sendCommand(type: 'approve' | 'reject' | 'addEvidence', payload: Record<string, unknown> = {}) {
     if (!review) return;
-    if (type === 'approve' && !canApprove(summary)) {
-      setError('All mandatory requirements need current passing evidence before approval.');
+    if (type === 'approve' && !approvalAvailable(summary)) {
+      setError(summary?.status === 'approved'
+        ? 'This review is already approved. New changes must be reviewed before approving again.'
+        : 'All mandatory requirements need current passing evidence before approval.');
       return;
     }
     if (type === 'reject' && rejectReason.trim().length < 5) {
@@ -293,9 +295,10 @@ export function ReviewsDashboard() {
                 ? 'At least one mandatory requirement is needed before approval.'
                 : summary.blockers.length + ' mandatory requirements still need valid evidence.'}</p>
             <p className="muted">Approval is checked again by the backend when connected to Jira.</p>
+            {summary.status === 'approved' && <p className="muted">The current evidence snapshot is already approved.</p>}
           </div>
           <div className="decision-controls">
-            <button className="button button-primary" disabled={busy || !canApprove(summary)}
+            <button className="button button-primary" disabled={busy || !approvalAvailable(summary)}
               type="button" onClick={() => void sendCommand('approve')}>Approve review</button>
           </div>
           <form className="reject-form" onSubmit={submitRejection}>
@@ -312,9 +315,10 @@ export function ReviewsDashboard() {
         <section className="panel" id="review-history" aria-labelledby="history-heading">
           <div className="panel-heading"><h2 id="history-heading">Review history</h2>
             <span>{review.events.length} events · {review.approvals.length} decisions</span></div>
-          <ol className="history-list">{[...review.events].reverse().map(event =>
+          <ol className="history-list">{buildHistoryEntries(review).map(event =>
             <li key={event.id}><strong>{event.description}</strong>
               <span>{event.actor} · {event.createdAt ? new Date(event.createdAt).toLocaleString() : 'Date unavailable'}</span>
+              {event.rejectionReason && <p className="history-reason"><strong>Rejection reason:</strong> {event.rejectionReason}</p>}
             </li>)}</ol>
         </section>
       </> : <section className="panel" role="status">
