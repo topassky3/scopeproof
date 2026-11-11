@@ -1,0 +1,28 @@
+name: Reviews Next.js checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/reviews-next/**'
+      - '.github/workflows/reviews-next.yml'
+  push:
+    paths:
+      - 'apps/reviews-next/**'
+      - '.github/workflows/reviews-next.yml'
+
+jobs:
+  reviews-next:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/reviews-next
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/reviews-next/package.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run test
+      - run: npm run build
