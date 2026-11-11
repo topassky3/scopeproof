@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  makeDemoReview, deriveReview, canApprove, buildReviewList,
-  filterReviewList, reviewMetrics, applyPreviewCommand,
+  makeDemoReview, deriveReview, canApprove, approvalAvailable,
+  buildHistoryEntries, buildReviewList, filterReviewList, reviewMetrics, applyPreviewCommand,
 } from '../lib/review-model.mjs';
 
 const demo = () => makeDemoReview();
@@ -99,4 +99,30 @@ test('search, status filters and totals derive from supplied rows', () => {
   assert.deepEqual(reviewMetrics(rows), {
     reviews: 2, approved: 1, revalidation: 1, notFinalized: 0,
   });
+});
+
+test('history displays the exact rejection reason only on its matching event', () => {
+  const reason = 'MFA remains unverified';
+  const r = command(demo(), 'reject', { note: reason });
+  const entries = buildHistoryEntries(r);
+  assert.equal(entries[0].rejectionReason, reason);
+  assert.equal(entries[1].rejectionReason, null);
+  assert.equal(entries[2].rejectionReason, null);
+});
+
+test('history does not guess a rejection reason without a matching decision', () => {
+  const r = demo();
+  r.events.push({ id: 'H-3', type: 'review-rejected',
+    description: 'Review rejected with reason', actor: 'someone-else', createdAt: '2026-11-10T10:00:00Z' });
+  assert.equal(buildHistoryEntries(r)[0].rejectionReason, null);
+});
+
+test('UI does not offer duplicate approval for an unchanged approved snapshot', () => {
+  let r = command(demo(), 'addEvidence', { requirementId: 'RQ-01', title: 'MFA v2 passed', result: 'passed' });
+  const pending = deriveReview(r);
+  assert.equal(approvalAvailable(pending), true);
+  r = command(r, 'approve');
+  const approved = deriveReview(r);
+  assert.equal(canApprove(approved), true);
+  assert.equal(approvalAvailable(approved), false);
 });
