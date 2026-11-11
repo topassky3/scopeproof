@@ -18,7 +18,12 @@ const projectDemo = (username?: string)=> {
   try { const raw = localStorage.getItem(previewKey(username)); return raw ? JSON.parse(raw) : exampleReview(); }
   catch { return exampleReview(); }
 };
-export function App({ localUsername }: { localUsername?: string } = {}){
+export function App({ localUsername, onLogout, loggingOut, sessionError }: {
+  localUsername?: string;
+  onLogout?: () => void;
+  loggingOut?: boolean;
+  sessionError?: string;
+} = {}){
   const [active,setActive]=useState<PageId>('Overview');
   const issueInputRef = useRef<HTMLInputElement>(null);
   const [issueKey,setIssueKey]=useState(preview?'ACO-142':'');
@@ -84,7 +89,8 @@ export function App({ localUsername }: { localUsername?: string } = {}){
     const a=document.createElement('a');a.href=url;a.download=`scopeproof-${review.issueKey}.json`;a.click();URL.revokeObjectURL(url);
   }
   return <>
-    <AppShell active={active} onNavigate={setActive} projectKey={projectKey} preview={preview}>
+    <AppShell active={active} onNavigate={setActive} projectKey={projectKey} preview={preview}
+      sessionUser={localUsername} onLogout={onLogout} loggingOut={loggingOut} sessionError={sessionError}>
       <PageHeader active={active} projectKey={projectKey} actions={<>{review && active==='Requirements'&&<button className="primary" onClick={()=>open('requirement')}><Plus size={17}/> New requirement</button>}{review && active==='Evidence'&&<button className="primary" onClick={()=>open('evidence',summary.rows[0]?.id??'')} disabled={!summary.rows.length}><Plus size={17}/> Add evidence</button>}{review && active==='Reports'&&<button className="primary" onClick={exportReport}><Download size={17}/> Export JSON</button>}</>} />
       {preview&&<div className="preview-banner">Local preview · sample data only. Jira access and Forge persistence become active after deployment.</div>}
       {error&&<div role="alert" className="error"><AlertTriangle size={17}/>{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
