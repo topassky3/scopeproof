@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from .models import Review
+from .security import AccessDenied
 from .services import ReviewError, apply_command, blank_review, summarize
 
 
@@ -110,3 +111,55 @@ class RemoteApiTests(TestCase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(stale.status_code, 409)
         self.assertEqual(Review.objects.get().revision, 1)
+
+    def test_project_list_requires_forge_invocation_token(self):
+        response = self.client.get("/api/v1/projects/AC/reviews/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_project_list_rejects_invalid_project_key(self):
+        response = self.client.get("/api/v1/projects/AC$OTHER/reviews/")
+        self.assertEqual(response.status_code, 400)
+
+    def test_project_list_excludes_other_tenants_and_inaccessible_issues(self):
+        available = change(blank_review(ISSUE), "addRequirement", title="Mandatory SSO evidence")
+        Review.objects.create(
+            installation_id="tenant-A", issue_id="142", issue_key="AC-142",
+            project_id="15", document=available, revision=available["revision"],
+        )
+        Review.objects.create(
+            installation_id="tenant-A", issue_id="143", issue_key="AC-143",
+            project_id="15", document=blank_review({**ISSUE, "id": "143", "key": "AC-143"}),
+        )
+        Review.objects.create(
+            installation_id="tenant-B", issue_id="144", issue_key="AC-144",
+            project_id="15", document=blank_review({**ISSUE, "id": "144", "key": "AC-144"}),
+        )
+        Review.objects.create(
+            installation_id="tenant-A", issue_id="145", issue_key="OTHER-145",
+            project_id="19", document=blank_review({**ISSUE, "id": "145", "key": "OTHER-145", "projectId": "19"}),
+        )
+
+        def permissions(_ctx, key, **_kwargs):
+            if key == "AC-143":
+                raise AccessDenied("JIRA_ISSUE_NOT_ACCESSIBLE", 403)
+            return ISSUE
+
+        ctx = {"installation": "tenant-A", "actor": "account-1"}
+        with patch("reviews.views.authenticated_context", return_value=ctx), patch(
+            "reviews.views.jira_get", return_value={"id": "15"}
+        ), patch("reviews.views.authorized_issue", side_effect=permissions):
+            result = self.client.get("/api/v1/projects/AC/reviews/")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {"reviews": [{
+            "issueKey": "AC-142", "summary": "Implement SSO", "status": "in-review",
+            "covered": 0, "mandatory": 1,
+        }]})
+
+    def test_project_list_requires_project_access(self):
+        ctx = {"installation": "tenant-A", "actor": "account-1"}
+        with patch("reviews.views.authenticated_context", return_value=ctx), patch(
+            "reviews.views.jira_get", side_effect=AccessDenied("JIRA_ISSUE_NOT_ACCESSIBLE", 403)
+        ):
+            response = self.client.get("/api/v1/projects/AC/reviews/")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["error"], "JIRA_ISSUE_NOT_ACCESSIBLE")
