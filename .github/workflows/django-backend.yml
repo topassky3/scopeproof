@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/django-backend-foundation-20261110
+      - feat/standalone-django-auth-20261111
     paths:
       - "backend/**"
       - ".github/workflows/django-backend.yml"
