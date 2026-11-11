@@ -7,3 +7,9 @@ dist/
 *.log
 .vscode/
 .DS_Store
+# Django local state: never commit virtualenv, SQLite data or Python caches
+backend/.venv/
+backend/db.sqlite3
+__pycache__/
+*.py[cod]
+.pytest_cache/
