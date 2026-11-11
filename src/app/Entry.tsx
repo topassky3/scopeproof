@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LogOut, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { App } from './App';
 import { LoginPage } from '../features/auth/LoginPage';
 import './standalone-auth.css';
@@ -99,15 +99,11 @@ export function Entry() {
   }
 
   return <div className="sp-standalone-shell">
-    <div className="sp-session-bar">
-      <div className="sp-session-ident"><ShieldCheck size={17}/> Sesión activa <strong>{session.username}</strong></div>
-      <div className="sp-session-actions">
-        {error && <span role="alert" className="sp-session-error">{error}</span>}
-        <button type="button" disabled={leaving} onClick={() => void logout()}>
-          <LogOut size={15}/> Cerrar sesión
-        </button>
-      </div>
-    </div>
-    <App localUsername={session.username ?? undefined}/>
+    <App
+      localUsername={session.username ?? undefined}
+      onLogout={() => void logout()}
+      loggingOut={leaving}
+      sessionError={error}
+    />
   </div>;
 }
