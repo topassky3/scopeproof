@@ -41,6 +41,36 @@ export function canApprove(summary) {
   return Boolean(summary && summary.mandatory > 0 && summary.blockers.length === 0);
 }
 
+/** UI guard: do not offer another approval when the current snapshot is already approved. */
+export function approvalAvailable(summary) {
+  return canApprove(summary) && summary.status !== 'approved';
+}
+
+/**
+ * Associate rejection events with their decision records without changing audit data.
+ * Only match the same actor and timestamp, and consume matches chronologically.
+ * Never claim a reason when no corresponding decision is available.
+ */
+export function buildHistoryEntries(review) {
+  const approvals = review?.approvals ?? [];
+  const used = new Set();
+  const entries = (review?.events ?? []).map(event => {
+    const rejected = event.type === 'review-rejected'
+      || /^Review rejected\b/i.test(event.description ?? '');
+    if (!rejected) return { ...event, rejectionReason: null };
+    const index = approvals.findIndex((decision, position) =>
+      !used.has(position)
+      && decision.type === 'rejected'
+      && decision.actor === event.actor
+      && decision.createdAt === event.createdAt
+    );
+    if (index < 0) return { ...event, rejectionReason: null };
+    used.add(index);
+    return { ...event, rejectionReason: approvals[index].note || null };
+  });
+  return entries.reverse();
+}
+
 export function buildReviewList(selected, summary, indexed = []) {
   const byKey = new Map(indexed.map(item => [item.issueKey, item]));
   if (selected && summary) byKey.set(selected.issueKey, {
