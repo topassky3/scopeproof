@@ -1,12 +1,13 @@
 """Forge Remote Django endpoints. Never accessible with browser cookies or local bypasses."""
 import json
+import re
 from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Review
-from .security import AccessDenied, authenticated_context, authorized_issue
+from .security import AccessDenied, authenticated_context, authorized_issue, jira_get
 from .services import ReviewError, apply_command, blank_review, summarize
 
 
@@ -33,6 +34,42 @@ def review_detail(request, issue_key):
     ).first()
     current = record.document if record else blank_review(issue)
     return JsonResponse({"review": current, "derived": summarize(current)})
+
+
+@require_GET
+def project_reviews(request, project_key):
+    """Only list reviews whose Jira issues this user can currently read."""
+    key = str(project_key).strip().upper()
+    if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,30}", key):
+        return JsonResponse({"error": "INVALID_PROJECT_KEY"}, status=400)
+    try:
+        ctx = authenticated_context(request)
+        project = jira_get(ctx, "/rest/api/3/project/" + key)
+        project_id = str(project["id"])
+    except AccessDenied as exc:
+        return _denied(exc)
+
+    rows = []
+    records = Review.objects.filter(
+        installation_id=ctx["installation"], project_id=project_id,
+    ).order_by("-updated_at", "-id")[:40]
+    for record in records:
+        try:
+            issue = authorized_issue(ctx, record.issue_key)
+        except AccessDenied:
+            # The user can see the project but not necessarily this issue.
+            continue
+        if issue["id"] != record.issue_id or issue["projectId"] != project_id:
+            continue
+        state = summarize(record.document)
+        rows.append({
+            "issueKey": issue["key"],
+            "summary": issue["summary"],
+            "status": state["status"],
+            "covered": state["covered"],
+            "mandatory": state["mandatory"],
+        })
+    return JsonResponse({"reviews": rows})
 
 
 @csrf_exempt  # FIT bearer authorization, not cookie-based authentication.
