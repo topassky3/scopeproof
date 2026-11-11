@@ -1,0 +1,23 @@
+/* Account dropdown in the local Jira-style preview header. */
+.sp-account-menu{position:relative;z-index:35;flex:0 0 auto}
+.sp-account-trigger{border:1px solid transparent;border-radius:999px;padding:4px 5px 4px 4px;background:transparent;display:flex;align-items:center;gap:5px;color:#60728f;transition:background .15s,border-color .15s;cursor:pointer}
+.sp-account-trigger:hover,.sp-account-trigger[aria-expanded="true"]{background:#edf3fe;border-color:#d6e3fb}
+.sp-account-trigger:focus-visible,.sp-account-logout:focus-visible{outline:3px solid #74a5ff;outline-offset:2px}
+.sp-account-avatar{width:35px;height:35px;display:grid;place-items:center;flex-shrink:0;border-radius:50%;background:linear-gradient(145deg,#235ec6,#123a92);box-shadow:0 2px 7px #113a8d26;color:#fff;font-size:12px;font-weight:800;letter-spacing:.2px}
+.sp-account-caret{transition:transform .16s}
+.sp-account-trigger[aria-expanded="true"] .sp-account-caret{transform:rotate(180deg)}
+.sp-account-panel{position:absolute;right:0;top:calc(100% + 12px);width:min(294px,calc(100vw - 24px));padding:12px;border-radius:16px;background:#fff;border:1px solid #e1e9f5;box-shadow:0 18px 55px #1a37612e,0 3px 10px #1a37610e;color:#203451}
+.sp-account-panel:before{content:'';position:absolute;right:19px;top:-6px;width:11px;height:11px;background:#fff;border-top:1px solid #e1e9f5;border-left:1px solid #e1e9f5;transform:rotate(45deg)}
+.sp-account-panel-heading{display:flex;align-items:center;gap:12px;padding:9px 8px 10px}
+.sp-account-avatar-large{width:44px;height:44px;font-size:15px}
+.sp-account-identity{display:grid;gap:3px;min-width:0;flex:1}
+.sp-account-caption{font-size:11px;color:#8493a8;font-weight:700}
+.sp-account-identity strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#15284a;font-size:16px}
+.sp-account-session{display:flex;align-items:center;gap:8px;color:#287f58;background:#eaf8f1;padding:10px 12px;border-radius:9px;font-size:12px;font-weight:700}
+.sp-account-panel-divider{height:1px;background:#e8edf4;margin:12px 0 6px}
+.sp-account-error{font-size:12px;color:#a32d39;padding:9px 7px;line-height:1.4}
+.sp-account-logout{width:100%;min-height:42px;display:flex;align-items:center;gap:11px;padding:10px 12px;border:none;border-radius:9px;background:#fff;color:#ba3041;font-size:13px;font-weight:750;text-align:left;cursor:pointer}
+.sp-account-logout:hover{background:#fff0f2}
+.sp-account-logout:disabled{opacity:.6;cursor:wait}
+@media(max-width:760px){.demo-jira-utilities .sp-account-menu svg{display:block}.sp-account-panel{right:-5px}.sp-account-trigger{padding:3px}}
+@media(prefers-reduced-motion:reduce){.sp-account-trigger,.sp-account-caret{transition:none}}
