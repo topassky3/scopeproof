@@ -3,11 +3,3 @@
 .sp-auth-loading p{color:#637791;max-width:450px}
 .sp-auth-loading button{cursor:pointer;border:0;border-radius:9px;background:#155de3;color:white;font-weight:750;padding:12px 20px}
 .sp-standalone-shell{min-height:100vh}
-.sp-session-bar{min-height:46px;background:#162e61;color:#dbe6ff;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:8px 22px;font-size:12px}
-.sp-session-ident{display:flex;align-items:center;gap:9px}.sp-session-ident strong{color:#fff;font-size:13px}
-.sp-session-actions{display:flex;align-items:center;gap:12px}
-.sp-session-actions button{display:flex;align-items:center;gap:8px;cursor:pointer;background:#ffffff17;border:1px solid #ffffff35;border-radius:8px;color:#fff;font-weight:700;font-size:12px;padding:8px 12px}
-.sp-session-actions button:hover{background:#ffffff27}
-.sp-session-actions button:focus-visible{outline:2px solid #b9d2ff;outline-offset:2px}
-.sp-session-error{color:#ffd9d9}
-@media(max-width:600px){.sp-session-bar{padding:8px 12px}.sp-session-ident{flex-wrap:wrap;gap:5px}}
