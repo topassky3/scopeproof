@@ -26,6 +26,8 @@ Sample data contains one ACO-142 review in revalidation status.
 - Click Approve: creates a second approval in preview, preserving the first.
 - Click View history: previous and new events are visible.
 - Reset demo and try Reject: reason under 5 characters is rejected, valid reason is accepted.
+- Confirm that the exact rejection reason appears beneath its matching event in Review history.
+- After approving with current evidence, the Approve review button is disabled to prevent duplicate UI approvals.
 - Test narrow browser widths, keyboard tab order, and screen-reader labels.
 
 ## Contract with Felipe's existing Forge backend
@@ -47,6 +49,6 @@ IMPORTANT: The browser-side projection is for display and preview. Only the Forg
 
 ## Automated tests
 
-Run npm run test to execute tests/reviews-model.test.mjs using Node's built-in test runner.
+Run npm run test to execute tests/reviews-model.test.mjs using Node's built-in test runner (13 cases).
 Run npm run build for TypeScript / Next static export validation.
 There are no connected Jira integration tests here: run CP-01 to CP-10 in the Jira development tenant after installation. CP-09 requires Felipe to fix atomic persistence first.
