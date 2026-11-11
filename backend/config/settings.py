@@ -59,6 +59,9 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_NAME = "scopeproof_csrftoken"
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = (["http://127.0.0.1:5173", "http://localhost:5173"] if DEBUG else [
+    x.strip() for x in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if x.strip()
+])
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
