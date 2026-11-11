@@ -41,6 +41,7 @@ Every `/api/v1/reviews/...` endpoint **requires a signed Forge Invocation Token*
 ## Protected endpoints
 
 - `GET /api/v1/reviews/<issue-key>/` — load the review for the authenticated installation after checking Jira issue access as the acting user
+- `GET /api/v1/projects/<project-key>/reviews/` — list up to 40 recent stored reviews for this installation and project; verify access to **each Jira issue** before returning a row. JSON response: `{"reviews":[{"issueKey":"AC-142","summary":"...","status":"in-review","covered":0,"mandatory":1}]}`
 - `POST /api/v1/reviews/<issue-key>/commands/` — apply one `src/domain.js`-compatible command after checking Jira `EDIT_ISSUES` as the acting user, atomically
 - `GET /health/` — public liveness
 
@@ -56,7 +57,7 @@ POST body: `{"command":{"type":"addRequirement","expectedRevision":0,"title":"Re
 6. Add dedicated reviewer permissions before any real production approval; current MVP allows a user with `EDIT_ISSUES` to approve.
 7. Validate threat model, data residency, permission consents and Apps for Software Teams competition requirements.
 
-This backend currently supports one-issue review get/command; **project list, notification integrations, PDF reports and a UI backend switch are not implemented**.
+This backend supports review get/command and a security-filtered project list; **notification integrations, PDF reports, a UI backend switch, and real Forge/Jira end-to-end testing are not implemented**.
 
 ## Security
 
