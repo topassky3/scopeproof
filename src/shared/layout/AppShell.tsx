@@ -4,24 +4,40 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { PAGES, pageDefinition, type PageId } from '../config/navigation';
+import { UserMenu } from './UserMenu';
 
 interface AppShellProps {
   active: PageId;
   onNavigate: (page: PageId) => void;
   projectKey: string;
   preview: boolean;
+  sessionUser?: string;
+  onLogout?: () => void;
+  loggingOut?: boolean;
+  sessionError?: string;
   children: ReactNode;
 }
 
 /** Local-only preview chrome. Inside Forge, Jira already provides its own header. */
-function PreviewJiraHeader({ projectKey }: { projectKey: string }) {
+function PreviewJiraHeader({ projectKey, sessionUser, onLogout, loggingOut, sessionError }: {
+  projectKey: string;
+  sessionUser?: string;
+  onLogout?: () => void;
+  loggingOut?: boolean;
+  sessionError?: string;
+}) {
   return (
     <header className="demo-jira-header" aria-label="Jira preview navigation">
       <div className="demo-jira-brand" aria-label="Jira preview"><span className="demo-jira-symbol">◆</span> Jira</div>
       <div className="demo-jira-separator" />
       <div className="demo-jira-project"><span className="project-icon">{(projectKey || 'AC').slice(0, 2)}</span><span>Atlas Commerce</span><ChevronDown size={15} /></div>
       <div className="demo-jira-links" aria-hidden="true"><span>Your work</span><strong>Projects</strong><span>Filters</span><span>Dashboards</span><span>Apps</span></div>
-      <div className="demo-jira-utilities" aria-hidden="true"><Search size={19}/><CircleHelp size={19}/><Bell size={19}/><span className="avatar">ML</span></div>
+      <div className="demo-jira-utilities">
+        <Search size={19} aria-hidden="true"/><CircleHelp size={19} aria-hidden="true"/><Bell size={19} aria-hidden="true"/>
+        {sessionUser && onLogout
+          ? <UserMenu username={sessionUser} onLogout={onLogout} loggingOut={loggingOut} error={sessionError}/>
+          : <span className="avatar" aria-hidden="true">ML</span>}
+      </div>
     </header>
   );
 }
@@ -48,11 +64,11 @@ function Sidebar({ active, onNavigate, onDone }: {
   );
 }
 
-export function AppShell({ active, onNavigate, projectKey, preview, children }: AppShellProps) {
+export function AppShell({ active, onNavigate, projectKey, preview, sessionUser, onLogout, loggingOut, sessionError, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   return (
     <div className="app sp-app">
-      {preview && <PreviewJiraHeader projectKey={projectKey} />}
+      {preview && <PreviewJiraHeader projectKey={projectKey} sessionUser={sessionUser} onLogout={onLogout} loggingOut={loggingOut} sessionError={sessionError} />}
       <div className="sp-shell">
         <button type="button" className="sp-mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle navigation" aria-expanded={mobileOpen}>{mobileOpen ? <X size={20}/> : <Menu size={20}/>} Menu</button>
         <div className={`sp-sidebar-wrap ${mobileOpen ? 'is-open' : ''}`}><Sidebar active={active} onNavigate={onNavigate} onDone={() => setMobileOpen(false)} /></div>

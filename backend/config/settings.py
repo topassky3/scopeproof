@@ -10,12 +10,18 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [x.strip() for x in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if x.strip()]
 INSTALLED_APPS = [
+    "django.contrib.auth",
     "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "accounts",
     "reviews",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
 ]
 ROOT_URLCONF = "config.urls"
 TEMPLATES = []
@@ -46,8 +52,28 @@ USE_TZ = True
 TIME_ZONE = "UTC"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SECURE_CONTENT_TYPE_NOSNIFF = True
+SESSION_COOKIE_NAME = "scopeproof_sessionid"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_NAME = "scopeproof_csrftoken"
+CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
+CSRF_TRUSTED_ORIGINS = (["http://127.0.0.1:5173", "http://localhost:5173"] if DEBUG else [
+    x.strip() for x in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if x.strip()
+])
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# Standalone Django accounts are separate from Forge/Jira sessions.
+SCOPEPROOF_STANDALONE_AUTH = DEBUG or os.getenv("SCOPEPROOF_STANDALONE_AUTH") == "1"
+# Public sign-up is permitted only in local DEBUG unless explicitly enabled later.
+SCOPEPROOF_ALLOW_SIGNUP = DEBUG and os.getenv("SCOPEPROOF_ALLOW_SIGNUP", "1") == "1"
 
 # Read from the registered Forge app, NEVER from the token itself.
 SCOPEPROOF_FORGE_APP_ID = os.getenv("SCOPEPROOF_FORGE_APP_ID", "")

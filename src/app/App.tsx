@@ -13,17 +13,23 @@ import { SettingsPage } from '../features/settings/SettingsPage';
 
 // The local preview is explicitly sample data; the installed Forge app talks to Jira + Forge KVS.
 const preview = import.meta.env.DEV;
-const projectDemo = ()=> {
-  try { const raw = localStorage.getItem('scopeproof-preview'); return raw ? JSON.parse(raw) : exampleReview(); }
+const previewKey = (username?: string) => `scopeproof-preview:${username ?? 'anonymous'}`;
+const projectDemo = (username?: string)=> {
+  try { const raw = localStorage.getItem(previewKey(username)); return raw ? JSON.parse(raw) : exampleReview(); }
   catch { return exampleReview(); }
 };
-export function App(){
+export function App({ localUsername, onLogout, loggingOut, sessionError }: {
+  localUsername?: string;
+  onLogout?: () => void;
+  loggingOut?: boolean;
+  sessionError?: string;
+} = {}){
   const [active,setActive]=useState<PageId>('Overview');
   const issueInputRef = useRef<HTMLInputElement>(null);
   const [issueKey,setIssueKey]=useState(preview?'ACO-142':'');
   const [inputKey,setInputKey]=useState(preview?'ACO-142':'');
   const [projectKey,setProjectKey]=useState(preview?'ACO':'');
-  const [review,setReview]=useState<any>(preview?projectDemo():null);
+  const [review,setReview]=useState<any>(preview?projectDemo(localUsername):null);
   const [list,setList]=useState<any[]>([]);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
@@ -44,7 +50,7 @@ export function App(){
       if(issue){setIssueKey(issue);setInputKey(issue);await fetchReview(issue);}
     }catch(e:any){setError(e?.message ?? 'Could not load Jira context');}})();
   },[]);
-  useEffect(()=>{if(preview && review)localStorage.setItem('scopeproof-preview',JSON.stringify(review));},[review]);
+  useEffect(()=>{if(preview && review)localStorage.setItem(previewKey(localUsername),JSON.stringify(review));},[review,localUsername]);
   useEffect(()=>{ if(preview){setList(review?[{issueKey:review.issueKey,summary:review.summary,status:summary.status,covered:summary.covered,mandatory:summary.mandatory}]:[]);return;}
     if(!projectKey)return;
     (async()=>{try{const {invoke}=await import('@forge/bridge');const rows:any=await invoke('listReviews',{projectKey});setList(rows??[]);}catch{/* Browsing an inaccessible project yields no rows. */}})();
@@ -53,7 +59,7 @@ export function App(){
   async function fetchReview(key:string){
     const clean=key.trim().toUpperCase(); if(!clean){setError('Enter a Jira issue key first.');return;}
     setError('');setBusy(true);
-    try{ if(preview){setIssueKey(clean);setReview(projectDemo());}
+    try{ if(preview){setIssueKey(clean);setReview(projectDemo(localUsername));}
       else{const {invoke}=await import('@forge/bridge');const data:any=await invoke('getReview',{issueKey:clean});setIssueKey(clean);setInputKey(clean);setReview(data.review);}
       setNotice('Review loaded.');
     }catch(e:any){setError(e?.message??'Issue not accessible');}finally{setBusy(false);}
@@ -83,7 +89,8 @@ export function App(){
     const a=document.createElement('a');a.href=url;a.download=`scopeproof-${review.issueKey}.json`;a.click();URL.revokeObjectURL(url);
   }
   return <>
-    <AppShell active={active} onNavigate={setActive} projectKey={projectKey} preview={preview}>
+    <AppShell active={active} onNavigate={setActive} projectKey={projectKey} preview={preview}
+      sessionUser={localUsername} onLogout={onLogout} loggingOut={loggingOut} sessionError={sessionError}>
       <PageHeader active={active} projectKey={projectKey} actions={<>{review && active==='Requirements'&&<button className="primary" onClick={()=>open('requirement')}><Plus size={17}/> New requirement</button>}{review && active==='Evidence'&&<button className="primary" onClick={()=>open('evidence',summary.rows[0]?.id??'')} disabled={!summary.rows.length}><Plus size={17}/> Add evidence</button>}{review && active==='Reports'&&<button className="primary" onClick={exportReport}><Download size={17}/> Export JSON</button>}</>} />
       {preview&&<div className="preview-banner">Local preview · sample data only. Jira access and Forge persistence become active after deployment.</div>}
       {error&&<div role="alert" className="error"><AlertTriangle size={17}/>{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}

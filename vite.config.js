@@ -1,3 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-export default defineConfig({ plugins: [react()], base: './', build: { outDir: 'dist' } });
+
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  build: { outDir: 'dist' },
+  // Same-origin development API. Django still enforces CSRF and sessions.
+  server: {
+    host: '127.0.0.1',
+    proxy: { '/api/local': { target: 'http://127.0.0.1:8000', changeOrigin: true } },
+  },
+});
