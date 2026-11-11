@@ -44,3 +44,21 @@ test('Vite forwards standalone auth API to Django without opening an auth bypass
   assert.match(settings, /SessionMiddleware/);
   assert.match(settings, /SCOPEPROOF_STANDALONE_AUTH/);
 });
+
+test('signed-in user appears in top-right profile dropdown rather than a blue banner', () => {
+  const entry = read('src/app/Entry.tsx');
+  const app = read('src/app/App.tsx');
+  const shell = read('src/shared/layout/AppShell.tsx');
+  const menu = read('src/shared/layout/UserMenu.tsx');
+  assert.doesNotMatch(entry, /sp-session-bar|sp-session-ident/);
+  assert.match(entry, /localUsername=\{session\.username \?\? undefined\}/);
+  assert.match(entry, /onLogout=\{\(\) => void logout\(\)\}/);
+  assert.match(app, /sessionUser=\{localUsername\}/);
+  assert.match(shell, /<UserMenu username=\{sessionUser\}/);
+  assert.match(menu, /username\.trim\(\)\.slice\(0, 2\)\.toUpperCase\(\)/);
+  assert.match(menu, /Cerrar sesión/);
+  assert.match(menu, /aria-expanded=\{open\}/);
+  assert.match(menu, /pointerdown/);
+  assert.match(menu, /event\.key === 'Escape'/);
+  assert.ok(existsSync(resolve(root, 'src/shared/layout/user-menu.css')));
+});
