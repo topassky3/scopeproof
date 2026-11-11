@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, LogOut, ShieldCheck, UserRound } from 'lucide-react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { ChevronDown, LogOut, ShieldCheck } from 'lucide-react';
 import './user-menu.css';
 
 export interface UserMenuProps {
@@ -27,7 +27,7 @@ export function UserMenu({ username, onLogout, loggingOut = false, error = '' }:
     return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
   }, [open]);
 
-  function onEscape(event: React.KeyboardEvent<HTMLDivElement>) {
+  function onEscape(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape' && open) {
       event.stopPropagation();
       setOpen(false);
@@ -59,7 +59,7 @@ export function UserMenu({ username, onLogout, loggingOut = false, error = '' }:
           {error && <div className="sp-account-error" role="alert">{error}</div>}
           <button className="sp-account-logout" type="button"
             disabled={loggingOut}
-            onClick={() => { setOpen(false); onLogout(); }}>
+            onClick={onLogout}>
             <LogOut size={17} aria-hidden="true" />
             {loggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
           </button>
