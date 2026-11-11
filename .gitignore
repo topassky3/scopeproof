@@ -13,3 +13,6 @@ backend/db.sqlite3
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Development-only persistent Django signing key
+backend/.local-django-secret
