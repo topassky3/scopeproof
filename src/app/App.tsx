@@ -182,7 +182,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
       </div> : <>
         {active === 'Overview' && <OverviewPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}
           onNewReview={() => { if(localMode){setCreateOpen(true);}else{issueInputRef.current?.focus();issueInputRef.current?.select();} }}
-          onAddEvidence={(id) => open('evidence', id)} />}
+          onAddEvidence={(id) => open('evidence', id)} localMode={localMode} />}
         {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}/>}
         {active === 'Requirements' && <RequirementsPage summary={summary} openEditor={open}/>}
         {active === 'Evidence' && <EvidencePage review={review}/>}
