@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { AlertTriangle, CheckCircle2, Clock3, Plus, RefreshCw, Save, X } from 'lucide-react';
-import { CoverageBar, Panel, StatusBadge } from '../../shared/components/ui';
+import { AlertTriangle, CheckCircle2, Clock3, Plus, Save, X } from 'lucide-react';
+import { Panel, StatusBadge } from '../../shared/components/ui';
 import { LocalReviewCreate } from './LocalReviewCreate';
 import { ReviewWorkspace } from './ReviewWorkspace';
 import { listLocalReviews, getLocalReview, createLocalReview, commandLocalReview } from './localReviewApi';
