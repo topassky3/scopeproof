@@ -1,0 +1,10 @@
+.sp-local-create { padding: 20px; margin-bottom: 20px; }
+.sp-local-create-heading { display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:16px; }
+.sp-local-create-heading h2 { margin:0 0 6px;font-size:19px; }
+.sp-local-create-heading p { margin:0; }
+.sp-local-create-heading button { background:transparent;border:1px solid var(--sp-border);padding:5px;border-radius:8px; }
+.sp-local-create-form { display:flex;flex-wrap:wrap;align-items:end;gap:12px; }
+.sp-local-create-form .field { flex:1 1 180px;min-width:0;margin:0; }
+.sp-local-create-form .field input { width:100%; }
+.sp-local-create-form button[type="submit"] { min-height:40px;display:flex;align-items:center;gap:6px;justify-content:center; }
+@media(max-width:640px){.sp-local-create-form { flex-direction:column;align-items:stretch; }.sp-local-create-form .field { width:100%;flex:auto; }}

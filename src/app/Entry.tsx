@@ -101,6 +101,7 @@ export function Entry() {
   return <div className="sp-standalone-shell">
     <App
       localUsername={session.username ?? undefined}
+      csrfToken={session.csrfToken}
       onLogout={() => void logout()}
       loggingOut={leaving}
       sessionError={error}

@@ -5,6 +5,7 @@ import { AppShell, PageHeader } from '../shared/layout/AppShell';
 import type { PageId } from '../shared/config/navigation';
 import { OverviewPage } from '../features/overview/OverviewPage';
 import { ReviewsPage } from '../features/reviews/ReviewsPage';
+import { LocalReviewsPage } from '../features/reviews/LocalReviewsPage';
 import { RequirementsPage } from '../features/requirements/RequirementsPage';
 import { EvidencePage } from '../features/evidence/EvidencePage';
 import { HistoryPage } from '../features/history/HistoryPage';
@@ -18,13 +19,15 @@ const projectDemo = (username?: string)=> {
   try { const raw = localStorage.getItem(previewKey(username)); return raw ? JSON.parse(raw) : exampleReview(); }
   catch { return exampleReview(); }
 };
-export function App({ localUsername, onLogout, loggingOut, sessionError }: {
+export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionError }: {
   localUsername?: string;
+  csrfToken?: string;
   onLogout?: () => void;
   loggingOut?: boolean;
   sessionError?: string;
 } = {}){
   const [active,setActive]=useState<PageId>('Overview');
+  const sessionReviews = Boolean(localUsername && csrfToken) && active === 'Reviews';
   const issueInputRef = useRef<HTMLInputElement>(null);
   const [issueKey,setIssueKey]=useState(preview?'ACO-142':'');
   const [inputKey,setInputKey]=useState(preview?'ACO-142':'');
@@ -92,11 +95,11 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
     <AppShell active={active} onNavigate={setActive} projectKey={projectKey} preview={preview}
       sessionUser={localUsername} onLogout={onLogout} loggingOut={loggingOut} sessionError={sessionError}>
       <PageHeader active={active} projectKey={projectKey} actions={<>{review && active==='Requirements'&&<button className="primary" onClick={()=>open('requirement')}><Plus size={17}/> New requirement</button>}{review && active==='Evidence'&&<button className="primary" onClick={()=>open('evidence',summary.rows[0]?.id??'')} disabled={!summary.rows.length}><Plus size={17}/> Add evidence</button>}{review && active==='Reports'&&<button className="primary" onClick={exportReport}><Download size={17}/> Export JSON</button>}</>} />
-      {preview&&<div className="preview-banner">Local preview · sample data only. Jira access and Forge persistence become active after deployment.</div>}
+      {!sessionReviews && preview && <div className="preview-banner">Local preview · sample data only. Jira access and Forge persistence become active after deployment.</div>}
       {error&&<div role="alert" className="error"><AlertTriangle size={17}/>{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
       {notice&&<div role="status" className="notice"><CheckCircle2 size={17}/>{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={15}/></button></div>}
-      <div className="lookup"><label htmlFor="issue-input">Jira issue</label><input id="issue-input" ref={issueInputRef} value={inputKey} onChange={e=>setInputKey(e.target.value.toUpperCase())} placeholder="e.g. ACO-142"/><button onClick={()=>fetchReview(inputKey)} disabled={busy}>Open review <ArrowRight size={16}/></button>{review&&<span className="lookup-current">{review.issueKey} · {review.summary}</span>}</div>
-      {!review ? <div className="empty"><Inbox size={40}/><h2>Open a Jira issue to begin</h2><p>Use an issue you can access in this Jira project.</p></div> : <>
+      {!sessionReviews && <div className="lookup"><label htmlFor="issue-input">Jira issue</label><input id="issue-input" ref={issueInputRef} value={inputKey} onChange={e=>setInputKey(e.target.value.toUpperCase())} placeholder="e.g. ACO-142"/><button onClick={()=>fetchReview(inputKey)} disabled={busy}>Open review <ArrowRight size={16}/></button>{review&&<span className="lookup-current">{review.issueKey} · {review.summary}</span>}</div>}
+      {sessionReviews ? <LocalReviewsPage csrfToken={csrfToken!}/> : !review ? <div className="empty"><Inbox size={40}/><h2>Open a Jira issue to begin</h2><p>Use an issue you can access in this Jira project.</p></div> : <>
         {active === 'Overview' && <OverviewPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}
           onNewReview={() => { issueInputRef.current?.focus(); issueInputRef.current?.select(); }}
           onAddEvidence={(id) => open('evidence', id)} />}
