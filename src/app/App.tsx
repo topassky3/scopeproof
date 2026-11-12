@@ -101,7 +101,7 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
           onNewReview={() => { issueInputRef.current?.focus(); issueInputRef.current?.select(); }}
           onAddEvidence={(id) => open('evidence', id)} />}
         {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}/>}
-        {active === 'Requirements' && <RequirementsPage summary={summary} openEditor={open}/>}
+        {active === 'Requirements' && <RequirementsPage summary={summary} review={review} openEditor={open}/>}
         {active === 'Evidence' && <EvidencePage review={review}/>}
         {active === 'History' && <HistoryPage review={review}/>}
         {active === 'Reports' && <ReportsPage review={review} summary={summary}/>}
