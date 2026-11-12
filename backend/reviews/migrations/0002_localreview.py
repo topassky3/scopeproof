@@ -29,14 +29,14 @@ class Migration(migrations.Migration):
             model_name="localreview",
             constraint=models.UniqueConstraint(
                 fields=("owner", "issue_key"),
-                name="scopeproof_local_owner_issue_uniq",
+                name="scope_local_owner_issue_uniq",
             ),
         ),
         migrations.AddIndex(
             model_name="localreview",
             index=models.Index(
                 fields=["owner", "project_key"],
-                name="scopeproof_local_owner_proj_idx",
+                name="scope_local_owner_proj_idx",
             ),
         ),
     ]
