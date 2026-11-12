@@ -34,6 +34,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [inputKey,setInputKey]=useState(localMode ? '' : preview ? 'ACO-142' : '');
   const [projectKey,setProjectKey]=useState(localMode ? '' : preview ? 'ACO' : '');
   const [review,setReview]=useState<any>(localMode ? null : preview ? projectDemo(localUsername) : null);
+  const [localSummary,setLocalSummary]=useState<any>(null);
   const [list,setList]=useState<any[]>([]);
   const [createOpen,setCreateOpen]=useState(false);
   const [loadingLocal,setLoadingLocal]=useState(localMode);
@@ -47,7 +48,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [result,setResult]=useState('passed');
   const [note,setNote]=useState('');
   const [mandatory,setMandatory]=useState(true);
-  const summary:any=review?summarize(review):null;
+  const summary:any=review?(localMode && localSummary ? localSummary : summarize(review)):null;
 
   useEffect(()=>{ if (preview || localMode) return;
     (async()=>{try { const {view}=await import('@forge/bridge');const c:any=await view.getContext();
@@ -70,11 +71,13 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
           const loaded = await getLocalReview(rows[0].issueKey);
           if (cancelled) return;
           setReview(loaded.review);
+          setLocalSummary(loaded.derived);
           setIssueKey(loaded.review.issueKey);
           setInputKey(loaded.review.issueKey);
           setProjectKey(loaded.review.issueKey.split('-')[0]);
         } else {
           setReview(null);
+          setLocalSummary(null);
           setProjectKey('');
         }
       } catch (exc) {
@@ -106,6 +109,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
     try {
       const response = await createLocalReview(key, summary, csrfToken);
       setReview(response.review);
+      setLocalSummary(response.derived);
       setIssueKey(response.review.issueKey);
       setInputKey(response.review.issueKey);
       setProjectKey(response.review.issueKey.split('-')[0]);
@@ -128,6 +132,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
     try{ if(localMode){
         const loaded = await getLocalReview(clean);
         setReview(loaded.review);
+        setLocalSummary(loaded.derived);
         setIssueKey(loaded.review.issueKey);
         setInputKey(loaded.review.issueKey);
         setProjectKey(loaded.review.issueKey.split('-')[0]);
@@ -144,6 +149,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
         if (!csrfToken) throw new Error('Missing Django CSRF token. Sign in again.');
         const response = await commandLocalReview(review.issueKey, command, csrfToken);
         updated = response.review;
+        setLocalSummary(response.derived);
         await refreshLocalList();
       } else if(preview)updated=applyCommand(review,command,'local-preview');
       else {const {invoke}=await import('@forge/bridge');const response:any=await invoke('command',{issueKey:review.issueKey,command});updated=response.review;}
