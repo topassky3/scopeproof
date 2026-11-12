@@ -253,3 +253,4 @@ export function LocalReviewsPage({ csrfToken }: { csrfToken: string }) {
       </form>
     </div>}
   </div>;
+}
