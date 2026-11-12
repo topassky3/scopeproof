@@ -49,12 +49,12 @@ class LocalReview(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["owner", "issue_key"],
-                name="scopeproof_local_owner_issue_uniq",
+                name="scope_local_owner_issue_uniq",
             ),
         ]
         indexes = [
             models.Index(
                 fields=["owner", "project_key"],
-                name="scopeproof_local_owner_proj_idx",
+                name="scope_local_owner_proj_idx",
             ),
         ]
