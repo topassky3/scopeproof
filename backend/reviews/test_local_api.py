@@ -45,6 +45,41 @@ class LocalReviewApiTests(TestCase):
             "/api/local/reviews/new/", data="{}", content_type="application/json"
         ).status_code, 403)  # CSRF blocks before the view
 
+    def test_real_login_logout_and_relogin_preserves_review(self):
+        # Exercise the same authentication and CSRF flow used by the browser.
+        self.browser.logout()
+        csrf = self.browser.get("/api/local/auth/session/").json()["csrfToken"]
+        login = self.browser.post(
+            "/api/local/auth/login/",
+            data=json.dumps({"username": "alice", "password": "VerySecurePassword#12"}),
+            content_type="application/json", HTTP_X_CSRFTOKEN=csrf,
+        )
+        self.assertEqual(login.status_code, 200)
+        create = self.send("/api/local/reviews/new/", {
+            "issueKey": "ACO-210", "summary": "Review with real authenticated session",
+        }, token=login.json()["csrfToken"])
+        self.assertEqual(create.status_code, 201)
+        self.assertEqual(LocalReview.objects.count(), 1)
+
+        logged_in = self.browser.get("/api/local/auth/session/").json()
+        logged_out = self.browser.post(
+            "/api/local/auth/logout/", data="{}",
+            content_type="application/json", HTTP_X_CSRFTOKEN=logged_in["csrfToken"],
+        )
+        self.assertEqual(logged_out.status_code, 200)
+        self.assertEqual(self.browser.get("/api/local/reviews/ACO-210/").status_code, 401)
+
+        new_csrf = self.browser.get("/api/local/auth/session/").json()["csrfToken"]
+        second_login = self.browser.post(
+            "/api/local/auth/login/",
+            data=json.dumps({"username": "alice", "password": "VerySecurePassword#12"}),
+            content_type="application/json", HTTP_X_CSRFTOKEN=new_csrf,
+        )
+        self.assertEqual(second_login.status_code, 200)
+        fetched = self.browser.get("/api/local/reviews/ACO-210/")
+        self.assertEqual(fetched.status_code, 200)
+        self.assertEqual(fetched.json()["review"]["summary"], "Review with real authenticated session")
+
     def test_create_read_list_and_restart_persistence(self):
         created = self.create()
         self.assertEqual(created["review"]["issueKey"], "ACO-142")
