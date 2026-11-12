@@ -1,8 +1,11 @@
 # Standalone Reviews API (Django session)
 
-This is the **first backend foundation** for the React/Vite dashboard and Lopera's
-Next.js Reviews prototype. It does **not** connect either frontend yet. Current
-Next.js preview remains sample-only until a separate UI integration step.
+This backend is connected to the **main React/Vite dashboard** at
+`http://127.0.0.1:5173/dashboard` after Django login. It loads and persists
+user-owned Reviews through `/api/local/reviews/`. Lopera's independent
+Next.js prototype on port 3000 remains a **sample-only** preview.
+Its tested search, status filters, metrics and rejection-reason display have
+been ported into the primary Reviews UI.
 
 ## Security and architecture
 
@@ -41,14 +44,32 @@ The launcher runs database migrations. Run tests from a second terminal with the
 same `DJANGO_DEBUG`, `DJANGO_SECRET_KEY`, and `DJANGO_ALLOWED_HOSTS`
 environment settings, or rely on GitHub Actions.
 
+## Browser acceptance test
+
+1. Start Django with `scripts/start-django-local.ps1` in terminal one.
+2. Run `npm.cmd run dev` from the repository root (React/Vite) in terminal two.
+3. Sign in to `http://127.0.0.1:5173/login` with a Django account.
+4. Open **Reviews** in the existing left navigation. Click **New review** and
+   create `ACO-210` with summary `Verify durable changes`.
+5. Open **Requirements**, add a mandatory requirement. Then use **Evidence**
+   or the requirement's **Add evidence** action to add a passed result.
+6. Return to **Reviews**, approve and open **History**; the event is preserved.
+7. Change the requirement version: the review must become **Revalidation**.
+8. Sign out, restart both servers, sign back in: `ACO-210` and its history
+   must still exist. Another account must not be able to read `ACO-210`.
+9. Verify the Next.js preview at port 3000 remains isolated and does not
+   claim to be connected to Django.
+
+This is *local standalone* persistence. It does not verify real Jira issues,
+and does not migrate the demo data from browser localStorage.
+
 ## Follow-up required
 
-1. Introduce a typed, cookie-authenticated client in the Vite Reviews screen
-   (or explicitly choose the Next.js prototype as the primary UI). The current
-   Vite preview and Next.js preview **still use sample data**.
-2. Implement review creation/open/list UX with real session auth.
-3. Confirm persistence across restart and isolation between two users.
-4. Introduce roles/team collaboration only after defining authorization policy.
-5. Postgres multi-worker concurrency validation and production hardening.
-6. Integrate Jira Forge only through verified FIT and authorized user tokens;
-   never mix local cookies into those protected endpoints.
+1. Complete manual browser acceptance testing with two real local users.
+2. Define user roles/team collaboration; current local reviews belong to one
+   authenticated user and are not shared.
+3. Validate PostgreSQL multi-worker concurrency in a staging deployment.
+4. Integrate Jira Forge only through verified FIT and authorized user tokens,
+   including actual tenant checks and Forge permissions.
+5. Review dependency audit warnings before production deployment.
+
