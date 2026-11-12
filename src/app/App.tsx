@@ -96,9 +96,14 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
     (async()=>{try{const {invoke}=await import('@forge/bridge');const rows:any=await invoke('listReviews',{projectKey});setList(rows??[]);}catch{/* Browsing an inaccessible project yields no rows. */}})();
   },[projectKey,review,localMode]);
 
-  async function refreshLocalList() {
-    const rows = await listLocalReviews();
-    setList(rows);
+  async function refreshLocalList(): Promise<boolean> {
+    try {
+      const rows = await listLocalReviews();
+      setList(rows);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function createReview(key: string, summary: string): Promise<boolean> {
@@ -113,10 +118,10 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
       setIssueKey(response.review.issueKey);
       setInputKey(response.review.issueKey);
       setProjectKey(response.review.issueKey.split('-')[0]);
-      await refreshLocalList();
+      const listUpdated = await refreshLocalList();
       setCreateOpen(false);
       setActive('Reviews');
-      setNotice('Review saved in Django.');
+      setNotice(listUpdated ? 'Review saved in Django.' : 'Review saved in Django; refresh the list to see all entries.');
       return true;
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : 'No se pudo crear la revisión.');
@@ -144,16 +149,16 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   async function change(type:string,props:Record<string,any>={}){
     if(!review)return false;
     setBusy(true);setError('');setNotice('');
-    try {const command={type,expectedRevision:review.revision,...props};let updated:any;
+    try {const command={type,expectedRevision:review.revision,...props};let updated:any;let listUpdated=true;
       if(localMode){
         if (!csrfToken) throw new Error('Missing Django CSRF token. Sign in again.');
         const response = await commandLocalReview(review.issueKey, command, csrfToken);
         updated = response.review;
         setLocalSummary(response.derived);
-        await refreshLocalList();
+        listUpdated = await refreshLocalList();
       } else if(preview)updated=applyCommand(review,command,'local-preview');
       else {const {invoke}=await import('@forge/bridge');const response:any=await invoke('command',{issueKey:review.issueKey,command});updated=response.review;}
-      setReview(updated);setNotice('Saved successfully.');return true;
+      setReview(updated);setNotice(listUpdated ? 'Saved successfully.' : 'Saved in Django; review list needs a refresh.');return true;
     }catch(e:any){setError(e?.message??'Unable to save. Please reload.');return false;}
     finally{setBusy(false);}
   }
