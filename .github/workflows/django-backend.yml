@@ -6,6 +6,7 @@ on:
       - main
       - feat/django-backend-foundation-20261110
       - feat/standalone-django-auth-20261111
+      - feat/local-reviews-persistence-20261112
     paths:
       - "backend/**"
       - ".github/workflows/django-backend.yml"
