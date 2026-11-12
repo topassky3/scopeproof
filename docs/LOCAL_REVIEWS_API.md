@@ -5,7 +5,10 @@ This backend is connected to the **main React/Vite dashboard** at
 user-owned Reviews through `/api/local/reviews/`. Lopera's independent
 Next.js prototype on port 3000 remains a **sample-only** preview.
 Its tested search, status filters, metrics and rejection-reason display have
-been ported into the primary Reviews UI.
+been ported into the primary Reviews UI. **Django is used only on the Reviews tab**:
+Overview, Requirements, Evidence, History, Reports, Settings, and AppShell retain
+their existing demo/Forge behavior. This is deliberate until those features are
+integrated in a separate, coordinated PR.
 
 ## Security and architecture
 
@@ -51,13 +54,18 @@ environment settings, or rely on GitHub Actions.
 3. Sign in to `http://127.0.0.1:5173/login` with a Django account.
 4. Open **Reviews** in the existing left navigation. Click **New review** and
    create `ACO-210` with summary `Verify durable changes`.
-5. Open **Requirements**, add a mandatory requirement. Then use **Evidence**
-   or the requirement's **Add evidence** action to add a passed result.
-6. Return to **Reviews**, approve and open **History**; the event is preserved.
-7. Change the requirement version: the review must become **Revalidation**.
+5. **Stay in Reviews**: in the Requirements panel add a mandatory requirement,
+   then use its **Add evidence** action to record a passed test.
+6. In the Reviews decision panel approve; scroll to the **Review history**
+   panel inside Reviews and confirm the recorded event.
+7. In the Reviews requirement panel use **New version**: the review must become
+   **Revalidation**. Add current evidence to restore its readiness.
 8. Sign out, restart both servers, sign back in: `ACO-210` and its history
    must still exist. Another account must not be able to read `ACO-210`.
-9. Verify the Next.js preview at port 3000 remains isolated and does not
+9. Navigate to Overview, Requirements, Evidence, History, Reports and Settings:
+   all retain their preexisting UI/preview behavior. They **do not** load the
+   saved Django reviews yet. Do not confuse demo records with saved reviews.
+10. Verify the Next.js preview at port 3000 remains isolated and does not
    claim to be connected to Django.
 
 This is *local standalone* persistence. It does not verify real Jira issues,
