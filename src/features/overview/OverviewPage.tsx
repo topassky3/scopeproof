@@ -19,6 +19,7 @@ interface Props {
   onSelectIssue: (key: string) => void;
   onNewReview: () => void;
   onAddEvidence: (requirementId: string) => void;
+  localMode?: boolean;
 }
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -36,7 +37,7 @@ function formatDate(value: string | undefined) {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue, onNewReview, onAddEvidence }: Props) {
+export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue, onNewReview, onAddEvidence, localMode = false }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -58,7 +59,7 @@ export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue,
       <div className="ov-primary">
         <div className="ov-heading-row">
           <p className="ov-eyebrow">PROJECT HEALTH</p>
-          <button type="button" className="primary ov-new-review" onClick={onNewReview}><Plus size={16}/> Open Jira issue</button>
+          <button type="button" className="primary ov-new-review" onClick={onNewReview}><Plus size={16}/> {localMode ? 'New local review' : 'Open Jira issue'}</button>
         </div>
         <div className="metrics ov-metrics" aria-label="Project review summary">
           <StatCard value={metrics.approved} label="Approved" icon={CheckCircle2} tone="good"/>
