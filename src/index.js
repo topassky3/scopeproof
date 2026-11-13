@@ -1,8 +1,11 @@
-import Resolver from '@forge/resolver';
+import ResolverModule from '@forge/resolver';
 import api, { route } from '@forge/api';
 import { kvs } from '@forge/kvs';
 import { blankReview, applyCommand, summarize } from './domain.js';
 
+// Forge's ESM bundler can expose the CommonJS resolver as a namespace object.
+// Unwrap its default export before constructing it (Node/Forge interop).
+const Resolver = ResolverModule.default ?? ResolverModule;
 const resolver = new Resolver();
 const validKey = (key) => /^[A-Z][A-Z0-9_]*-[1-9][0-9]{0,8}$/.test(key);
 const reviewKey = (id) => `review:${id}`;
