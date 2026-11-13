@@ -23,8 +23,7 @@ permissions:
     - read:jira-work
     - storage:app
 app:
-  # Replace this placeholder by running `forge register Scopeproof` ONCE.
-  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  id: ari:cloud:ecosystem::app/74c7ab33-fea7-4061-9ecc-1cd5a1b898dc
   runtime:
     name: nodejs24.x
     memoryMB: 256
