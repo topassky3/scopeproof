@@ -9,6 +9,7 @@ modules:
   jira:issuePanel:
     - key: scopeproof-issue
       title: Scopeproof Evidence
+      icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
       resource: frontend
       resolver:
         function: main-resolver
