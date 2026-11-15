@@ -101,13 +101,17 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
       {requiresAttention ? <AlertTriangle size={20} aria-hidden="true" />
         : <CheckCircle2 size={20} aria-hidden="true" />}
       <div>
-        <strong>{summary.status === 'revalidation'
-          ? 'Prior approval requires revalidation'
+        <strong>{metrics.mandatory === 0
+          ? 'Add a mandatory requirement to begin'
+          : summary.status === 'revalidation'
+            ? 'Prior approval requires revalidation'
           : requiresAttention ? 'Evidence is needed before approval'
           : summary.status === 'approved' ? 'Current requirements are approved'
           : 'All mandatory requirements have valid evidence'}</strong>
-        <p>{requiresAttention
-          ? metrics.attention + ' mandatory requirement(s) need current passing evidence. Earlier test results stay in history.'
+        <p>{metrics.mandatory === 0
+          ? 'Create at least one mandatory requirement and record passing evidence before approval.'
+          : requiresAttention
+            ? metrics.attention + ' mandatory requirement(s) need current passing evidence. Earlier test results stay in history.'
           : summary.status === 'approved'
             ? 'The latest decision applies to the current evidence snapshot.'
             : 'Approval still requires an explicit reviewer decision.'}</p>
@@ -197,9 +201,9 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
           : 'Requirements and evidence determine whether an explicit approval can be made.'}</p>
       </Panel>
     </div>
-    <div className="rq-preview-help">
+    {import.meta.env.DEV && <div className="rq-preview-help">
       <ShieldCheck size={17} aria-hidden="true" />
       Changes in local preview update sample data only. They do not write to Django or Jira.
-    </div>
+    </div>}
   </div>;
 }
