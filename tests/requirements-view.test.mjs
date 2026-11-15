@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyCommand, exampleReview, summarize } from '../src/domain.js';
@@ -66,4 +67,22 @@ test('Creating an optional requirement does not change mandatory coverage', () =
   assert.equal(summary.mandatory, 3);
   assert.equal(summary.covered, 2);
   assert.equal(summary.blockers.length, 1);
+});
+
+test('An empty review is not reported as having passed mandatory coverage', () => {
+  const empty = { requirements: [], evidence: [], approvals: [], events: [], revision: 0 };
+  const summary = summarize(empty);
+  const metrics = requirementMetrics(summary);
+  assert.equal(metrics.total, 0);
+  assert.equal(metrics.mandatory, 0);
+  assert.equal(metrics.covered, 0);
+  assert.equal(metrics.attention, 0);
+  assert.notEqual(summary.status, 'approved');
+});
+
+test('Requirements only shows sample-data disclaimer in development', () => {
+  const source = readFileSync(new URL('../src/features/requirements/RequirementsPage.tsx', import.meta.url), 'utf8');
+  assert.match(source, /\{import\.meta\.env\.DEV && <div className="rq-preview-help">/);
+  assert.match(source, /metrics\.mandatory === 0\s*\? 'Add a mandatory requirement to begin'/);
+  assert.match(source, /metrics\.mandatory === 0\s*\? 'Create at least one mandatory requirement/);
 });
