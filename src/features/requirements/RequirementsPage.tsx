@@ -83,6 +83,7 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
   const evidence = selected ? evidenceOverview(selected, review.evidence ?? []) : null;
   const hasDecision = review.approvals.length > 0;
   const requiresAttention = metrics.attention > 0;
+  const needsReview = requiresAttention || metrics.mandatory === 0 || summary.status === 'revalidation';
 
   return <div className="rq-page">
     <section className="rq-overview" aria-label="Requirements overview">
@@ -96,9 +97,9 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
         detail="Mandatory checks pending" />
     </section>
 
-    <section className={'rq-notice ' + (requiresAttention ? 'rq-notice-alert' : 'rq-notice-good')}
+    <section className={'rq-notice ' + (needsReview ? 'rq-notice-alert' : 'rq-notice-good')}
       aria-label="Review impact">
-      {requiresAttention ? <AlertTriangle size={20} aria-hidden="true" />
+      {needsReview ? <AlertTriangle size={20} aria-hidden="true" />
         : <CheckCircle2 size={20} aria-hidden="true" />}
       <div>
         <strong>{metrics.mandatory === 0
