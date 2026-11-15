@@ -85,4 +85,5 @@ test('Requirements only shows sample-data disclaimer in development', () => {
   assert.match(source, /\{import\.meta\.env\.DEV && <div className="rq-preview-help">/);
   assert.match(source, /metrics\.mandatory === 0\s*\? 'Add a mandatory requirement to begin'/);
   assert.match(source, /metrics\.mandatory === 0\s*\? 'Create at least one mandatory requirement/);
+  assert.match(source, /const needsReview = requiresAttention \|\| metrics\.mandatory === 0 \|\| summary\.status === 'revalidation'/);
 });
