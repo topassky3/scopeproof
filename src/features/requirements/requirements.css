@@ -102,3 +102,17 @@
     flex:1 1 115px;min-width:0;white-space:normal;
   }
 }
+
+
+/* Narrow phones: keep KPI labels and notices within the 393px viewport. */
+@media (max-width:480px) {
+  .rq-overview { grid-template-columns:minmax(0,1fr); }
+  .rq-metric { width:100%; }
+  .rq-metric-copy { min-width:0;grid-template-columns:minmax(0,1fr); }
+  .rq-metric-copy b,.rq-metric-copy small { min-width:0;overflow-wrap:anywhere; }
+  .rq-notice { align-items:flex-start; }
+  .rq-notice>div { min-width:0;overflow-wrap:anywhere; }
+  .rq-panel .panel-head { flex-wrap:wrap; }
+  .rq-panel .panel-head>span { max-width:100%;overflow-wrap:anywhere; }
+  .rq-search input { text-overflow:ellipsis; }
+}
