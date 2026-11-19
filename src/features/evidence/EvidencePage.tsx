@@ -30,7 +30,9 @@ function ApplicabilityTag({ state }: { state: EvidenceViewRow['applicability'] }
 function RecordDate({ value }: { value?: string }) {
   if (!value) return <span className="muted">Not recorded</span>;
   const date = new Date(value);
-  return <time dateTime={value}>{Number.isNaN(date.getTime()) ? value : date.toLocaleString()}</time>;
+  return <time dateTime={value} className="ev-record-date">{Number.isNaN(date.getTime())
+    ? value
+    : <><span>{date.toLocaleDateString()}</span>{' '}<span>{date.toLocaleTimeString()}</span></>}</time>;
 }
 
 export function EvidencePage({ review, summary, openEditor }: EvidencePageProps) {
