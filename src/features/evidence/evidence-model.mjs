@@ -12,9 +12,14 @@ export function buildEvidenceRows(review) {
       : entry.version < requirement.version ? 'outdated'
       : entry.version > requirement.version ? 'unknown'
       : latestPositions.get(identity(entry)) === index ? 'current' : 'superseded';
+    // Use the title attached to the EVIDENCE VERSION, not the current requirement title.
+    const versionRecord = requirement?.versions?.find(v => v.version === entry.version);
+    const historicalTitle = versionRecord?.title
+      ?? (requirement?.version === entry.version ? requirement.title : null);
     return {
       ...entry,
-      requirementTitle: requirement?.title ?? 'Requirement unavailable',
+      requirementTitle: historicalTitle ?? (requirement ? 'Historical description unavailable' : 'Requirement unavailable'),
+      currentRequirementTitle: requirement?.title ?? null,
       mandatory: Boolean(requirement?.mandatory),
       currentVersion: requirement?.version ?? null,
       applicability,

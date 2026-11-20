@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { CoverageBar, Panel, StatusBadge } from '../../shared/components/ui';
 import type { OpenEditor, ReviewData, ReviewSummary } from '../../shared/types/review';
+import { actorLabel } from '../../shared/actors/actor-names.mjs';
 import { buildEvidenceRows, evidenceMetrics, filterEvidenceRows } from './evidence-model.mjs';
 import type { EvidenceViewRow } from './evidence-model.mjs';
 import './evidence.css';
@@ -13,6 +14,7 @@ interface EvidencePageProps {
   review: ReviewData;
   summary: ReviewSummary;
   openEditor: OpenEditor;
+  actorNames?: Record<string, string>;
 }
 
 function ResultTag({ result }: { result: 'passed' | 'failed' }) {
@@ -35,7 +37,7 @@ function RecordDate({ value }: { value?: string }) {
     : <><span>{date.toLocaleDateString()}</span>{' '}<span>{date.toLocaleTimeString()}</span></>}</time>;
 }
 
-export function EvidencePage({ review, summary, openEditor }: EvidencePageProps) {
+export function EvidencePage({ review, summary, openEditor, actorNames = {} }: EvidencePageProps) {
   const rows = useMemo(() => buildEvidenceRows(review), [review]);
   const metrics = useMemo(() => evidenceMetrics(rows), [rows]);
   const [query, setQuery] = useState('');
@@ -127,9 +129,12 @@ export function EvidencePage({ review, summary, openEditor }: EvidencePageProps)
           <div className="ev-tags"><ResultTag result={selected.result} /><ApplicabilityTag state={selected.applicability} /></div>
           <dl className="ev-details-list">
             <div><dt>Requirement</dt><dd>{selected.requirementId} · v{selected.version}</dd></div>
+            <div><dt>Version description</dt><dd>{selected.requirementTitle}</dd></div>
+            {selected.currentRequirementTitle && selected.currentVersion !== selected.version &&
+              <div><dt>Current description</dt><dd>{selected.currentRequirementTitle}</dd></div>}
             <div><dt>Current version</dt><dd>{selected.currentVersion === null ? 'Unavailable' : 'v' + selected.currentVersion}</dd></div>
             <div><dt>Type</dt><dd>{selected.mandatory ? 'Mandatory' : 'Optional'}</dd></div>
-            <div><dt>Recorded by</dt><dd>{selected.actor || 'Not recorded'}</dd></div>
+            <div><dt>Recorded by</dt><dd title={selected.actor || undefined}>{actorLabel(selected.actor, actorNames)}</dd></div>
             <div><dt>Date</dt><dd><RecordDate value={selected.createdAt} /></dd></div>
           </dl>
           <div className="ev-detail-note">
