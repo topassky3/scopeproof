@@ -13,7 +13,7 @@ export function latestReviewDecision(review) {
 }
 
 export function reviewActionMessage(summary) {
-  if (summary.status === 'revalidation') return 'Previous approval needs a new decision. Current passing evidence does not automatically reapprove it.';
+  if (summary.status === 'revalidation') return 'Previous approval needs an explicit new decision. Current passing evidence does not automatically reapprove it.';
   if (summary.blockers?.length) return summary.blockers.length + ' mandatory requirement(s) need passing evidence for the latest version.';
   if (!summary.mandatory) return 'Add at least one mandatory requirement and passing evidence before approval.';
   if (summary.status === 'approved') return 'The latest decision applies to the current evidence snapshot.';

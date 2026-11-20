@@ -49,7 +49,7 @@ export function ReviewWorkspace({
   const decision = useMemo(() => latestReviewDecision(review), [review]);
   const impact = useMemo(() => reviewImpact(review,summary), [review,summary]);
   const events = useMemo(() => recentReviewActivity(review,3), [review]);
-  const needsAttention = summary.status === 'revalidation' || summary.blockers.length > 0 || summary.mandatory === 0;
+  const needsAttention = summary.status === 'revalidation' || summary.status === 'rejected' || summary.blockers.length > 0 || summary.mandatory === 0;
   const countFor = (id: Filter) => id === 'all' ? metrics.total
     : id === 'in-review' ? metrics.inReview
     : metrics[id];
@@ -161,7 +161,7 @@ export function ReviewWorkspace({
         </Panel>
         <Panel title="Change impact" className="rw-impact">
           <div className="rw-impact-grid">
-            <div><strong>{impact.staleRequirements}</strong><span>Requirements without current evidence</span></div>
+            <div><strong>{summary.blockers.length}</strong><span>Mandatory checks needing evidence</span></div>
             <div><strong>{impact.outdatedEvidence}</strong><span>Historical evidence records</span></div>
             <div><strong>{impact.approvalsToRevalidate}</strong><span>Approvals to revisit</span></div>
           </div>
