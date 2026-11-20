@@ -100,7 +100,7 @@ export function ReviewWorkspace({
         <thead><tr><th scope="col">Issue</th><th scope="col">Summary</th>
           <th scope="col">Review status</th><th scope="col">Coverage</th>
           <th scope="col">Action</th></tr></thead>
-        <tbody>{pageRows.map(item => <tr key={item.issueKey} className={item.issueKey === review.issueKey ? 'rw-selected' : ''}>
+        <tbody>{pageRows.map((item: ReviewListItem) => <tr key={item.issueKey} className={item.issueKey === review.issueKey ? 'rw-selected' : ''}>
           <td data-label="Issue"><button type="button" className="rw-link"
             onClick={() => onSelectIssue(item.issueKey)}>{item.issueKey}</button></td>
           <td data-label="Summary" className="rw-summary" title={item.summary}>{item.summary}</td>
