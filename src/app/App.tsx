@@ -101,8 +101,9 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
       {!review ? <div className="empty"><Inbox size={40}/><h2>Open a Jira issue to begin</h2><p>Use an issue you can access in this Jira project.</p></div> : <>
         {active === 'Overview' && <OverviewPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}
           onNewReview={() => { issueInputRef.current?.focus(); issueInputRef.current?.select(); }}
-          onAddEvidence={(id) => open('evidence', id)} />}
-        {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}/>}
+          onAddEvidence={(id) => open('evidence', id)} actorNames={actorNames} />}
+        {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}
+          onNewReview={() => { issueInputRef.current?.focus(); issueInputRef.current?.select(); }} actorNames={actorNames} />}
         {active === 'Requirements' && <RequirementsPage summary={summary} review={review} openEditor={open}/>}
         {active === 'Evidence' && <EvidencePage review={review} summary={summary} openEditor={open} actorNames={actorNames}/>}
         {active === 'History' && <HistoryPage review={review} actorNames={actorNames}/>}

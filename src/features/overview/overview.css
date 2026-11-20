@@ -91,3 +91,42 @@
 @media(max-width:1300px) { .ov-layout { grid-template-columns:minmax(0,1fr); } .ov-aside { grid-template-columns:repeat(2,minmax(0,1fr)); } .ov-detail-card { grid-row:span 2; } }
 @media(max-width:900px) { .ov-aside { grid-template-columns:1fr; } .ov-detail-card { grid-row:auto; } .ov-filter-caption { display:none; } }
 @media(max-width:560px) { .ov-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .ov-metrics .metric { padding:12px 8px; } .ov-metrics .metric strong { font-size:20px; } .ov-new-review { font-size:12px;padding:9px; } .ov-table-panel { padding:12px 9px; } .ov-actions { flex-wrap:wrap; } }
+
+
+/* Accurate neutral styling when a review has no current revalidation blockers. */
+.ov-impact-numbers.is-clear { background:#f1f7f4; }
+.ov-impact-numbers.is-clear > div { border-right-color:#daeadf; }
+.ov-impact-numbers.is-clear b { color:#187343; }
+.ov-impact-numbers.is-clear span { color:#526f61; }
+.ov-issue-link:focus-visible,.ov-tabs button:focus-visible { outline:3px solid #5b9cff;outline-offset:2px; }
+
+/* Mobile table is presented as fully labelled cards, without sideways overflow. */
+@media(max-width:760px) {
+  .ov-dashboard,.ov-dashboard>* { min-width:0;max-width:100%; }
+  .ov-layout { grid-template-columns:minmax(0,1fr); }
+  .ov-table-panel .table-wrap { overflow-x:clip; }
+  .ov-table,.ov-table tbody,.ov-table tr { display:block;width:100%;min-width:0; }
+  .ov-table thead { display:none; }
+  .ov-table tbody { display:grid;gap:10px; }
+  .ov-table tbody tr { padding:11px 13px;border:1px solid var(--sp-border);border-radius:10px;background:#fbfcff; }
+  .ov-table tbody tr.row-selected { background:#eff5ff; }
+  .ov-table td { display:grid;grid-template-columns:minmax(0,100px) minmax(0,1fr);gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #edf1f7;min-width:0;overflow-wrap:anywhere; }
+  .ov-table td:last-child { border-bottom:0; }
+  .ov-table td::before { content:attr(data-label);font-size:11px;font-weight:700;color:var(--sp-muted); }
+  .ov-table .ov-summary-cell { max-width:none;white-space:normal;overflow-wrap:anywhere; }
+  .ov-table .badge { justify-self:start;white-space:normal; }
+  .ov-table .coverage { justify-self:start; }
+  .ov-toolbar { flex-wrap:wrap; }
+  .ov-search { width:100%; }
+  .ov-pagination { flex-wrap:wrap; }
+}
+@media(max-width:480px) {
+  .ov-heading-row { align-items:flex-start;flex-wrap:wrap; }
+  .ov-new-review { width:100%;justify-content:center; }
+  .ov-metrics { grid-template-columns:minmax(0,1fr); }
+  .ov-metrics .sp-stat-card { padding:12px 14px; }
+  .ov-impact-flow { gap:3px; }
+  .ov-impact-flow > span small { white-space:normal;text-align:center; }
+  .ov-impact-flow > svg { width:12px; }
+  .ov-issue-heading { flex-wrap:wrap; }
+}
