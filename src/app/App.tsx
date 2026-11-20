@@ -94,7 +94,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   return <>
     <AppShell active={active} onNavigate={setActive} projectKey={projectKey} preview={preview}
       sessionUser={localUsername} onLogout={onLogout} loggingOut={loggingOut} sessionError={sessionError}>
-      <PageHeader active={active} projectKey={projectKey} actions={<>{review && active==='Requirements'&&<button className="primary" onClick={()=>open('requirement')}><Plus size={17}/> New requirement</button>}{review && active==='Evidence'&&<button className="primary" onClick={()=>open('evidence',summary.rows[0]?.id??'')} disabled={!summary.rows.length}><Plus size={17}/> Add evidence</button>}{review && active==='Reports'&&<button className="primary" onClick={exportReport}><Download size={17}/> Export JSON</button>}</>} />
+      <PageHeader active={active} projectKey={projectKey} actions={<>{review && active==='Requirements'&&<button className="primary" onClick={()=>open('requirement')}><Plus size={17}/> New requirement</button>}{review && active==='Reports'&&<button className="primary" onClick={exportReport}><Download size={17}/> Export JSON</button>}</>} />
       {!sessionReviews && preview && <div className="preview-banner">Local preview · sample data only. Jira access and Forge persistence become active after deployment.</div>}
       {error&&<div role="alert" className="error"><AlertTriangle size={17}/>{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
       {notice&&<div role="status" className="notice"><CheckCircle2 size={17}/>{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={15}/></button></div>}
@@ -105,7 +105,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
           onAddEvidence={(id) => open('evidence', id)} />}
         {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}/>}
         {active === 'Requirements' && <RequirementsPage summary={summary} review={review} openEditor={open}/>}
-        {active === 'Evidence' && <EvidencePage review={review}/>}
+        {active === 'Evidence' && <EvidencePage review={review} summary={summary} openEditor={open}/>}
         {active === 'History' && <HistoryPage review={review}/>}
         {active === 'Reports' && <ReportsPage review={review} summary={summary}/>}
         {active === 'Settings' && <SettingsPage preview={preview}/>}
