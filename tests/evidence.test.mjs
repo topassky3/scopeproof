@@ -79,3 +79,22 @@ test('Evidence details track filtered records rather than a hidden selection', (
   const matches = filterEvidenceRows(rows, 'no-record-like-this');
   assert.equal(matches.length, 0);
 });
+
+test('Evidence keeps the historical requirement description for the version actually tested', () => {
+  const review = exampleReview();
+  const rows = buildEvidenceRows(review);
+  const old = rows.find(row => row.requirementId === 'RQ-01' && row.version === 1);
+  assert.equal(old.requirementTitle, 'Users can sign in using SSO');
+  assert.equal(old.currentRequirementTitle, 'SSO requires mandatory MFA');
+  const current = rows.find(row => row.requirementId === 'RQ-02' && row.version === 1);
+  assert.equal(current.requirementTitle, 'Sessions expire after 30 minutes');
+});
+
+test('Evidence does not invent historical wording when a legacy version record is absent', () => {
+  const rows = buildEvidenceRows({
+    requirements: [{id:'RQ-01',version:2,title:'Current requirement title',mandatory:true}],
+    evidence: [{id:'EV-101',requirementId:'RQ-01',version:1,title:'old test',result:'passed'}],
+  });
+  assert.equal(rows[0].requirementTitle, 'Historical description unavailable');
+  assert.equal(rows[0].currentRequirementTitle, 'Current requirement title');
+});

@@ -11,6 +11,7 @@ import { EvidencePage } from '../features/evidence/EvidencePage';
 import { HistoryPage } from '../features/history/HistoryPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
+import { useActorNames } from '../shared/actors/useActorNames';
 
 // The local preview is explicitly sample data; the installed Forge app talks to Jira + Forge KVS.
 const preview = import.meta.env.DEV;
@@ -45,6 +46,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [note,setNote]=useState('');
   const [mandatory,setMandatory]=useState(true);
   const summary:any=review?summarize(review):null;
+  const actorNames = useActorNames(review, !preview);
 
   useEffect(()=>{ if (preview) return;
     (async()=>{try { const {view}=await import('@forge/bridge');const c:any=await view.getContext();
@@ -105,8 +107,8 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
           onAddEvidence={(id) => open('evidence', id)} />}
         {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}/>}
         {active === 'Requirements' && <RequirementsPage summary={summary} review={review} openEditor={open}/>}
-        {active === 'Evidence' && <EvidencePage review={review} summary={summary} openEditor={open}/>}
-        {active === 'History' && <HistoryPage review={review}/>}
+        {active === 'Evidence' && <EvidencePage review={review} summary={summary} openEditor={open} actorNames={actorNames}/>}
+        {active === 'History' && <HistoryPage review={review} actorNames={actorNames}/>}
         {active === 'Reports' && <ReportsPage review={review} summary={summary}/>}
         {active === 'Settings' && <SettingsPage preview={preview}/>}
         {['Overview','Reviews','Requirements'].includes(active) && <div className="panel approval">

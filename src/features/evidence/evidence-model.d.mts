@@ -4,6 +4,7 @@ export interface EvidenceViewRow extends EvidenceRecord {
   actor?: string;
   createdAt?: string;
   requirementTitle: string;
+  currentRequirementTitle: string | null;
   mandatory: boolean;
   currentVersion: number | null;
   applicability: 'current' | 'outdated' | 'superseded' | 'unknown';

@@ -8,6 +8,7 @@ export interface RequirementRow {
   mandatory: boolean;
   state: string;
   latestEvidence?: { id: string } | null;
+  versions?: Array<{ version: number; title: string; actor?: string; createdAt?: string }>;
 }
 export interface ReviewSummary {
   rows: RequirementRow[];
@@ -23,6 +24,8 @@ export interface EvidenceRecord {
   title: string;
   result: 'passed' | 'failed';
   url?: string;
+  actor?: string;
+  createdAt?: string;
 }
 export interface AuditEvent {
   id: string;
