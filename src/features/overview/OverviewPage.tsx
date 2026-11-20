@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { CoverageBar, Panel, StatCard, StatusBadge } from '../../shared/components/ui';
 import type { AuditEvent, ReviewData, ReviewListItem, ReviewSummary } from '../../shared/types/review';
+import { actorLabel } from '../../shared/actors/actor-names.mjs';
 import { buildReviewRows, filterReviewRows, overviewMetrics, recentReviewActivity, reviewImpact } from './overview-model.js';
 import './overview.css';
 
@@ -19,6 +20,7 @@ interface Props {
   onSelectIssue: (key: string) => void;
   onNewReview: () => void;
   onAddEvidence: (requirementId: string) => void;
+  actorNames?: Record<string, string>;
 }
 
 const FILTERS: { id: Filter; label: string }[] = [
@@ -27,6 +29,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'in-review', label: 'In review' },
   { id: 'approved', label: 'Approved' },
   { id: 'pending', label: 'Pending' },
+  { id: 'rejected', label: 'Rejected' },
 ];
 const PAGE_SIZE = 6;
 
@@ -36,7 +39,7 @@ function formatDate(value: string | undefined) {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue, onNewReview, onAddEvidence }: Props) {
+export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue, onNewReview, onAddEvidence, actorNames = {} }: Props) {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -68,7 +71,7 @@ export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue,
         </div>
         {metrics.revalidation > 0 && <button type="button" className="ov-attention" onClick={() => { setFilter('revalidation'); setPage(1); }}>
           <span className="ov-attention-icon"><AlertTriangle size={22}/></span>
-          <span><strong>{metrics.revalidation} review{metrics.revalidation === 1 ? '' : 's'} need revalidation</strong><small>Evidence linked to an older requirement version may no longer be sufficient.</small></span>
+          <span><strong>{metrics.revalidation} review{metrics.revalidation === 1 ? '' : 's'} need revalidation</strong><small>An earlier approval needs a new decision, even when fresh evidence passes.</small></span>
           <ArrowRight size={19} aria-hidden="true"/>
         </button>}
         <Panel title="Issue reviews" className="ov-table-panel" aside={<span>{metrics.total} tracked</span>}>
@@ -87,11 +90,11 @@ export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue,
           <div className="table-wrap"><table className="ov-table">
             <thead><tr><th>Issue</th><th>Summary</th><th>Review status</th><th>Coverage</th><th><span className="sr-only">Action</span></th></tr></thead>
             <tbody>{pageRows.map((item: ReviewListItem) => <tr key={item.issueKey} className={item.issueKey === review.issueKey ? 'row-selected' : ''}>
-              <td><button type="button" className="ov-issue-link" onClick={() => onSelectIssue(item.issueKey)}>{item.issueKey}</button></td>
-              <td className="ov-summary-cell" title={item.summary}>{item.summary}</td>
-              <td><StatusBadge state={item.status}/></td>
-              <td><CoverageBar covered={item.covered} total={item.mandatory}/></td>
-              <td><button type="button" className="icon-btn" aria-label={`Open review ${item.issueKey}`} onClick={() => onSelectIssue(item.issueKey)}><ArrowRight size={17}/></button></td>
+              <td data-label="Issue"><button type="button" className="ov-issue-link" onClick={() => onSelectIssue(item.issueKey)}>{item.issueKey}</button></td>
+              <td data-label="Summary" className="ov-summary-cell" title={item.summary}>{item.summary}</td>
+              <td data-label="Review status"><StatusBadge state={item.status}/></td>
+              <td data-label="Coverage"><CoverageBar covered={item.covered} total={item.mandatory}/></td>
+              <td data-label="Action"><button type="button" className="icon-btn" aria-label={"Open review " + item.issueKey} onClick={() => onSelectIssue(item.issueKey)}><ArrowRight size={17}/></button></td>
             </tr>)}</tbody>
           </table></div>
           {pageRows.length === 0 && <div className="ov-empty"><ClipboardList size={25}/><b>No matching reviews</b><span>Try another search or review status.</span></div>}
@@ -118,17 +121,17 @@ export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue,
           <div className="ov-impact-flow" aria-label="Requirement and evidence change flow">
             <span><FileText size={22}/><small>Requirement</small></span><ArrowRight size={16}/><span><FlaskConical size={22}/><small>Evidence</small></span><ArrowRight size={16}/><span><ShieldCheck size={22}/><small>Approval</small></span><ArrowRight size={16}/><span className={impact.approvalsToRevalidate ? 'is-stale' : ''}><RefreshCw size={22}/><small>Check</small></span>
           </div>
-          <div className="ov-impact-numbers">
+          <div className={'ov-impact-numbers' + (!impact.approvalsToRevalidate && !impact.staleRequirements ? ' is-clear' : '')}>
             <div><b>{impact.staleRequirements}</b><span>Stale requirements</span></div>
             <div><b>{impact.outdatedEvidence}</b><span>Outdated evidence</span></div>
             <div><b>{impact.approvalsToRevalidate}</b><span>Approvals to revisit</span></div>
           </div>
           {impact.affected ? <p className="ov-impact-note"><strong>{impact.affected.id} v{impact.affected.version}</strong> needs new evidence for its current version.</p>
-            : <p className="ov-impact-note">Historical approvals and evidence remain traceable.</p>}
+            : <p className="ov-impact-note">{impact.approvalsToRevalidate ? "A previous approval requires explicit revalidation." : impact.outdatedEvidence ? "Older evidence is retained for audit and does not count towards current coverage." : "No changes require attention in the current review."}</p>}
           <button className="ov-text-link" type="button" onClick={() => onNavigate('History')}>View audit history <ArrowRight size={14}/></button>
         </Panel>
         <Panel title="Recent activity" className="ov-activity-card" aside={<button className="ov-text-link" type="button" onClick={() => onNavigate('History')}>View all</button>}>
-          <ol className="ov-timeline">{activity.map((event: AuditEvent) => <li key={event.id}><span className="ov-timeline-dot"><FileClock size={16}/></span><div><strong>{event.description}</strong><small>{event.actor} · {formatDate(event.createdAt)}</small></div></li>)}</ol>
+          <ol className="ov-timeline">{activity.map((event: AuditEvent) => <li key={event.id}><span className="ov-timeline-dot"><FileClock size={16}/></span><div><strong>{event.description}</strong><small title={event.actor}>{actorLabel(event.actor, actorNames)} · {formatDate(event.createdAt)}</small></div></li>)}</ol>
           {activity.length === 0 && <p className="muted"><History size={16}/> No recorded activity yet.</p>}
         </Panel>
       </aside>

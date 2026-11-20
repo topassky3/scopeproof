@@ -53,3 +53,22 @@ test('activity keeps newest events at the top', () => {
   assert.equal(data.length,2);
   assert.match(data[0].description,/revalidation/i);
 });
+
+
+test('Historical v1 evidence remains counted after v2 gains passing evidence and approval', () => {
+  let next = applyCommand(review, {type:'addEvidence',expectedRevision:review.revision,
+    requirementId:'RQ-01',title:'New MFA evidence',result:'passed'},'QA');
+  next = applyCommand(next,{type:'approve',expectedRevision:next.revision},'QA');
+  const impact = reviewImpact(next,summarize(next));
+  assert.equal(impact.staleRequirements,0);
+  assert.equal(impact.outdatedEvidence,1);
+  assert.equal(impact.approvalsToRevalidate,0);
+});
+
+test('Overview rejected filter exposes actual rejected records only', () => {
+  const rows = buildReviewRows(review,summary,[
+    {issueKey:'ACO-155',summary:'Release rejected',status:'rejected',covered:0,mandatory:1},
+  ]);
+  assert.deepEqual(filterReviewRows(rows,'','rejected').map(item=>item.issueKey),['ACO-155']);
+  assert.equal(overviewMetrics(rows).rejected,1);
+});

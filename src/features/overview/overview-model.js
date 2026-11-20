@@ -46,9 +46,11 @@ export function overviewMetrics(rows) {
 
 export function reviewImpact(review, summary) {
   const staleRows = summary.rows.filter(row => row.state === 'stale');
-  const staleIds = new Set(staleRows.map(row => row.id));
-  const outdatedEvidence = (review.evidence ?? []).filter(item => staleIds.has(item.requirementId)
-    && item.version < (summary.rows.find(row => row.id === item.requirementId)?.version ?? 0));
+  const currentVersions = new Map(summary.rows.map(row => [row.id, row.version]));
+  // Historic evidence remains outdated even after the newer version is approved.
+  // Only evidence linked to a known requirement is counted here.
+  const outdatedEvidence = (review.evidence ?? []).filter(item => currentVersions.has(item.requirementId)
+    && item.version < currentVersions.get(item.requirementId));
   const historicalApproval = (review.approvals ?? []).some(item => item.type === 'approved');
   return {
     staleRequirements: staleRows.length,
