@@ -107,3 +107,12 @@ test('local preview rejects stale writes before applying commands', () => {
   assert.match(source, /Another tab updated this review/);
   assert.match(source, /updated=applyCommand\(review,command,'local-preview'\)/);
 });
+
+
+test('local preview editor rejects a form opened before a cross-tab revision change', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /setEditorRevision\(review\?\.revision \?\? null\)/);
+  assert.match(source, /preview && editorRevision !== review\.revision/);
+  assert.match(source, /This form was opened before another tab changed the review/);
+  assert.match(source, /Close it and reopen to verify the latest data/);
+});
