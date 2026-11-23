@@ -79,3 +79,14 @@ test('Evidence details track filtered records rather than a hidden selection', (
   const matches = filterEvidenceRows(rows, 'no-record-like-this');
   assert.equal(matches.length, 0);
 });
+
+
+test('Evidence target stays independent of selected history and validates current requirements', () => {
+  const source = readFileSync(new URL('../src/features/evidence/EvidencePage.tsx', import.meta.url), 'utf8');
+  const selectRow = source.match(/function selectRow\(row: EvidenceViewRow\) \{([\s\S]*?)\n  \}/)?.[1];
+  assert.ok(selectRow, 'Evidence row selection handler must exist');
+  assert.match(selectRow, /setSelectedId\(row\.id\)/);
+  assert.doesNotMatch(selectRow, /setRequirementId/);
+  assert.match(source, /review\.requirements\.some\(row => row\.id === requirementId\)/);
+  assert.match(source, /disabled=\{!targetRequirementId\}/);
+});
