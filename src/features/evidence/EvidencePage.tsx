@@ -47,12 +47,13 @@ export function EvidencePage({ review, summary, openEditor }: EvidencePageProps)
     [rows, query, applicability, testResult]);
   const selected = matches.find(row => row.id === selectedId) ?? matches[0];
   const selectedRequirement = review.requirements.find(row => row.id === selected?.requirementId);
-  const targetRequirementId = requirementId || selected?.requirementId || review.requirements[0]?.id || '';
+  const targetRequirementId = review.requirements.some(row => row.id === requirementId)
+    ? requirementId
+    : (review.requirements[0]?.id ?? '');
   const needsReview = summary.blockers.length > 0 || summary.mandatory === 0 || summary.status === 'revalidation';
 
   function selectRow(row: EvidenceViewRow) {
     setSelectedId(row.id);
-    setRequirementId(row.requirementId);
   }
 
   return <div className="ev-page">

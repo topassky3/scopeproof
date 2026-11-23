@@ -79,3 +79,40 @@ test('Evidence details track filtered records rather than a hidden selection', (
   const matches = filterEvidenceRows(rows, 'no-record-like-this');
   assert.equal(matches.length, 0);
 });
+
+
+test('Evidence target stays independent of selected history and validates current requirements', () => {
+  const source = readFileSync(new URL('../src/features/evidence/EvidencePage.tsx', import.meta.url), 'utf8');
+  const selectRow = source.match(/function selectRow\(row: EvidenceViewRow\) \{([\s\S]*?)\n  \}/)?.[1];
+  assert.ok(selectRow, 'Evidence row selection handler must exist');
+  assert.match(selectRow, /setSelectedId\(row\.id\)/);
+  assert.doesNotMatch(selectRow, /setRequirementId/);
+  assert.match(source, /review\.requirements\.some\(row => row\.id === requirementId\)/);
+  assert.match(source, /disabled=\{!targetRequirementId\}/);
+});
+
+
+test('local preview listens for cross-tab updates and cleans up its listener', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /window\.addEventListener\('storage', onStorage\)/);
+  assert.match(source, /window\.removeEventListener\('storage', onStorage\)/);
+  assert.match(source, /event\.key !== key/);
+  assert.match(source, /incoming\.revision > current\.revision/);
+});
+
+test('local preview rejects stale writes before applying commands', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /stored\.revision !== review\.revision/);
+  assert.match(source, /setReview\(stored\)/);
+  assert.match(source, /Another tab updated this review/);
+  assert.match(source, /updated=applyCommand\(review,command,'local-preview'\)/);
+});
+
+
+test('local preview editor rejects a form opened before a cross-tab revision change', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /setEditorRevision\(review\?\.revision \?\? null\)/);
+  assert.match(source, /preview && editorRevision !== review\.revision/);
+  assert.match(source, /This form was opened before another tab changed the review/);
+  assert.match(source, /Close it and reopen to verify the latest data/);
+});
