@@ -109,7 +109,7 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
         {['Overview','Reviews','Requirements'].includes(active) && <div className="panel approval">
           <div><h2>Review decision</h2><p>{summary.blockers.length ? `${summary.blockers.length} mandatory requirements still need valid evidence.` : 'All mandatory requirements have current passing evidence.'}</p></div>
           <div className="inline-actions"><button type="button" onClick={() => open('reject')}>Reject with reason</button>
-            <button type="button" className="primary" disabled={busy || summary.blockers.length > 0 || summary.status === 'approved'} onClick={() => change('approve',{note:'Verified current evidence'})}><CheckCircle2 size={16}/> Approve review</button>
+            <button type="button" className="primary" disabled={busy || summary.mandatory === 0 || summary.blockers.length > 0 || summary.status === 'approved'} onClick={() => change('approve',{note:'Verified current evidence'})}><CheckCircle2 size={16}/> Approve review</button>
           </div>
         </div>}
       </>}
