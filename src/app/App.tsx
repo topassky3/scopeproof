@@ -51,6 +51,22 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
     }catch(e:any){setError(e?.message ?? 'Could not load Jira context');}})();
   },[]);
   useEffect(()=>{if(preview && review)localStorage.setItem(previewKey(localUsername),JSON.stringify(review));},[review,localUsername]);
+  // Keep local preview tabs in sync. Storage events fire in other tabs, not the writer.
+  useEffect(() => {
+    if (!preview) return;
+    const key = previewKey(localUsername);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== key) return;
+      try {
+        const incoming = event.newValue ? JSON.parse(event.newValue) : exampleReview();
+        if (incoming && Number.isInteger(incoming.revision)) {
+          setReview((current: any) => !current || incoming.revision > current.revision ? incoming : current);
+        }
+      } catch { setError('Preview data changed in another tab but could not be read. Reload this page.'); }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [localUsername]);
   useEffect(()=>{ if(preview){setList(review?[{issueKey:review.issueKey,summary:review.summary,status:summary.status,covered:summary.covered,mandatory:summary.mandatory}]:[]);return;}
     if(!projectKey)return;
     (async()=>{try{const {invoke}=await import('@forge/bridge');const rows:any=await invoke('listReviews',{projectKey});setList(rows??[]);}catch{/* Browsing an inaccessible project yields no rows. */}})();
@@ -68,7 +84,14 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
     if(!review)return false;
     setBusy(true);setError('');setNotice('');
     try {const command={type,expectedRevision:review.revision,...props};let updated:any;
-      if(preview)updated=applyCommand(review,command,'local-preview');
+      if(preview) {
+        const stored = projectDemo(localUsername);
+        if (stored.revision !== review.revision) {
+          setReview(stored);
+          throw new Error('CONFLICT: Another tab updated this review. Your view has been refreshed; review changes before saving again.');
+        }
+        updated=applyCommand(review,command,'local-preview');
+      }
       else {const {invoke}=await import('@forge/bridge');const response:any=await invoke('command',{issueKey:review.issueKey,command});updated=response.review;}
       setReview(updated);setNotice('Saved successfully.');return true;
     }catch(e:any){setError(e?.message??'Unable to save. Please reload.');return false;}
