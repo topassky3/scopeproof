@@ -104,3 +104,10 @@ test('approval banner distinguishes empty, revalidation, approved and ready stat
   assert.match(source, /summary\.status === 'revalidation' \? 'A previous approval requires revalidation\.'/);
   assert.match(source, /summary\.status === 'approved' \? 'This review is approved for the current evidence snapshot\.'/);
 });
+
+
+test('Requirements details follow filtered results instead of hidden selection', () => {
+  const source = readFileSync(new URL('../src/features/requirements/RequirementsPage.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const selected = matching\.find\(row => row\.id === selectedId\) \?\? matching\[0\]/);
+  assert.match(source, /const evidence = selected \? evidenceOverview\(selected, review\.evidence \?\? \[\]\) : null/);
+});
