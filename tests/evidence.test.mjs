@@ -90,3 +90,9 @@ test('Evidence target stays independent of selected history and validates curren
   assert.match(source, /review\.requirements\.some\(row => row\.id === requirementId\)/);
   assert.match(source, /disabled=\{!targetRequirementId\}/);
 });
+
+
+test('approval action is disabled when there are zero mandatory requirements', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /disabled=\{busy \|\| summary\.mandatory === 0 \|\| summary\.blockers\.length > 0 \|\| summary\.status === 'approved'\}/);
+});
