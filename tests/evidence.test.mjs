@@ -90,3 +90,20 @@ test('Evidence target stays independent of selected history and validates curren
   assert.match(source, /review\.requirements\.some\(row => row\.id === requirementId\)/);
   assert.match(source, /disabled=\{!targetRequirementId\}/);
 });
+
+
+test('local preview listens for cross-tab updates and cleans up its listener', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /window\.addEventListener\('storage', onStorage\)/);
+  assert.match(source, /window\.removeEventListener\('storage', onStorage\)/);
+  assert.match(source, /event\.key !== key/);
+  assert.match(source, /incoming\.revision > current\.revision/);
+});
+
+test('local preview rejects stale writes before applying commands', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /stored\.revision !== review\.revision/);
+  assert.match(source, /setReview\(stored\)/);
+  assert.match(source, /Another tab updated this review/);
+  assert.match(source, /updated=applyCommand\(review,command,'local-preview'\)/);
+});
