@@ -90,3 +90,17 @@ test('Evidence target stays independent of selected history and validates curren
   assert.match(source, /review\.requirements\.some\(row => row\.id === requirementId\)/);
   assert.match(source, /disabled=\{!targetRequirementId\}/);
 });
+
+
+test('approval action is disabled when there are zero mandatory requirements', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /disabled=\{busy \|\| summary\.mandatory === 0 \|\| summary\.blockers\.length > 0 \|\| summary\.status === 'approved'\}/);
+});
+
+
+test('approval banner distinguishes empty, revalidation, approved and ready states', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /summary\.mandatory === 0 \? 'Add at least one mandatory requirement before approval\.'/);
+  assert.match(source, /summary\.status === 'revalidation' \? 'A previous approval requires revalidation\.'/);
+  assert.match(source, /summary\.status === 'approved' \? 'This review is approved for the current evidence snapshot\.'/);
+});
