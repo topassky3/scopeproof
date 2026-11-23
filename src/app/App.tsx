@@ -36,6 +36,7 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
   const [busy,setBusy]=useState(false);
   const [modal,setModal]=useState<'requirement'|'version'|'evidence'|'reject'|null>(null);
   const [target,setTarget]=useState('');
+  const [editorRevision,setEditorRevision]=useState<number|null>(null);
   const [title,setTitle]=useState('');
   const [link,setLink]=useState('');
   const [result,setResult]=useState('passed');
@@ -98,9 +99,14 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
     finally{setBusy(false);}
   }
   function open(mode:'requirement'|'version'|'evidence'|'reject',id=''){
-    setModal(mode);setTarget(id);setTitle('');setLink('');setNote('');setResult('passed');setMandatory(true);setError('');
+    setModal(mode);setEditorRevision(review?.revision ?? null);setTarget(id);setTitle('');setLink('');setNote('');setResult('passed');setMandatory(true);setError('');
   }
-  async function submit(e:React.FormEvent){e.preventDefault();if(!review)return;let ok=false;
+  async function submit(e:React.FormEvent){e.preventDefault();if(!review)return;
+    if (preview && editorRevision !== review.revision) {
+      setError('CONFLICT: This form was opened before another tab changed the review. Close it and reopen to verify the latest data.');
+      return;
+    }
+    let ok=false;
     if(modal==='requirement')ok=await change('addRequirement',{title,mandatory});
     if(modal==='version')ok=await change('publishVersion',{requirementId:target,title});
     if(modal==='evidence')ok=await change('addEvidence',{requirementId:target,title,url:link,result});
