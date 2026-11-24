@@ -37,6 +37,7 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
   const [busy,setBusy]=useState(false);
   const [modal,setModal]=useState<'requirement'|'version'|'evidence'|'reject'|null>(null);
   const [target,setTarget]=useState('');
+  const [editorRevision,setEditorRevision]=useState<number|null>(null);
   const [title,setTitle]=useState('');
   const [link,setLink]=useState('');
   const [result,setResult]=useState('passed');
@@ -53,6 +54,22 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
     }catch(e:any){setError(e?.message ?? 'Could not load Jira context');}})();
   },[]);
   useEffect(()=>{if(preview && review)localStorage.setItem(previewKey(localUsername),JSON.stringify(review));},[review,localUsername]);
+  // Keep local preview tabs in sync. Storage events fire in other tabs, not the writer.
+  useEffect(() => {
+    if (!preview) return;
+    const key = previewKey(localUsername);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== key) return;
+      try {
+        const incoming = event.newValue ? JSON.parse(event.newValue) : exampleReview();
+        if (incoming && Number.isInteger(incoming.revision)) {
+          setReview((current: any) => !current || incoming.revision > current.revision ? incoming : current);
+        }
+      } catch { setError('Preview data changed in another tab but could not be read. Reload this page.'); }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [localUsername]);
   useEffect(()=>{ if(preview){setList(review?[{issueKey:review.issueKey,summary:review.summary,status:summary.status,covered:summary.covered,mandatory:summary.mandatory}]:[]);return;}
     if(!projectKey)return;
     (async()=>{try{const {invoke}=await import('@forge/bridge');const rows:any=await invoke('listReviews',{projectKey});setList(rows??[]);}catch{/* Browsing an inaccessible project yields no rows. */}})();
@@ -70,16 +87,28 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
     if(!review)return false;
     setBusy(true);setError('');setNotice('');
     try {const command={type,expectedRevision:review.revision,...props};let updated:any;
-      if(preview)updated=applyCommand(review,command,'local-preview');
+      if(preview) {
+        const stored = projectDemo(localUsername);
+        if (stored.revision !== review.revision) {
+          setReview(stored);
+          throw new Error('CONFLICT: Another tab updated this review. Your view has been refreshed; review changes before saving again.');
+        }
+        updated=applyCommand(review,command,'local-preview');
+      }
       else {const {invoke}=await import('@forge/bridge');const response:any=await invoke('command',{issueKey:review.issueKey,command});updated=response.review;}
       setReview(updated);setNotice('Saved successfully.');return true;
     }catch(e:any){setError(e?.message??'Unable to save. Please reload.');return false;}
     finally{setBusy(false);}
   }
   function open(mode:'requirement'|'version'|'evidence'|'reject',id=''){
-    setModal(mode);setTarget(id);setTitle('');setLink('');setNote('');setResult('passed');setMandatory(true);setError('');
+    setModal(mode);setEditorRevision(review?.revision ?? null);setTarget(id);setTitle('');setLink('');setNote('');setResult('passed');setMandatory(true);setError('');
   }
-  async function submit(e:React.FormEvent){e.preventDefault();if(!review)return;let ok=false;
+  async function submit(e:React.FormEvent){e.preventDefault();if(!review)return;
+    if (preview && editorRevision !== review.revision) {
+      setError('CONFLICT: This form was opened before another tab changed the review. Close it and reopen to verify the latest data.');
+      return;
+    }
+    let ok=false;
     if(modal==='requirement')ok=await change('addRequirement',{title,mandatory});
     if(modal==='version')ok=await change('publishVersion',{requirementId:target,title});
     if(modal==='evidence')ok=await change('addEvidence',{requirementId:target,title,url:link,result});
@@ -110,9 +139,9 @@ export function App({ localUsername, onLogout, loggingOut, sessionError }: {
         {active === 'Reports' && <ReportsPage review={review} summary={summary}/>}
         {active === 'Settings' && <SettingsPage preview={preview}/>}
         {['Overview','Reviews','Requirements'].includes(active) && <div className="panel approval">
-          <div><h2>Review decision</h2><p>{summary.blockers.length ? `${summary.blockers.length} mandatory requirements still need valid evidence.` : 'All mandatory requirements have current passing evidence.'}</p></div>
+          <div><h2>Review decision</h2><p>{summary.mandatory === 0 ? 'Add at least one mandatory requirement before approval.' : summary.status === 'revalidation' ? 'A previous approval requires revalidation.' : summary.blockers.length ? `${summary.blockers.length} mandatory requirements still need valid evidence.` : summary.status === 'approved' ? 'This review is approved for the current evidence snapshot.' : 'All mandatory requirements have current passing evidence. An explicit approval is still required.'}</p></div>
           <div className="inline-actions"><button type="button" onClick={() => open('reject')}>Reject with reason</button>
-            <button type="button" className="primary" disabled={busy || summary.blockers.length > 0 || summary.status === 'approved'} onClick={() => change('approve',{note:'Verified current evidence'})}><CheckCircle2 size={16}/> Approve review</button>
+            <button type="button" className="primary" disabled={busy || summary.mandatory === 0 || summary.blockers.length > 0 || summary.status === 'approved'} onClick={() => change('approve',{note:'Verified current evidence'})}><CheckCircle2 size={16}/> Approve review</button>
           </div>
         </div>}
       </>}

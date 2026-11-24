@@ -15,15 +15,17 @@ interface Props {
   review: ReviewData;
   summary: ReviewSummary;
   list: ReviewListItem[];
-  onNavigate: (page: 'Requirements' | 'Evidence' | 'History') => void;
+  onNavigate: (page: 'Requirements' | 'History') => void;
   onSelectIssue: (key: string) => void;
-  onNewReview: () => void;
+  onNewReview?: () => void;
+  onOpenEvidence?: () => void;
   actorNames?: Record<string, string>;
 }
-type Filter = 'all' | 'approved' | 'revalidation' | 'in-review' | 'pending' | 'rejected';
+type Filter = 'all' | 'approved' | 'revalidation' | 'in-review' | 'ready' | 'pending' | 'rejected';
 const FILTERS: { id: Filter; label: string }[] = [
   { id:'all',label:'All' }, { id:'approved',label:'Approved' },
-  { id:'revalidation',label:'Revalidation' }, { id:'in-review',label:'In progress' },
+  { id:'revalidation',label:'Revalidation' }, { id:'in-review',label:'In review' },
+  { id:'ready',label:'Ready to approve' },
   { id:'pending',label:'Pending' }, { id:'rejected',label:'Rejected' },
 ];
 const PAGE_SIZE = 6;
@@ -35,14 +37,15 @@ const formatDate = (value: string) => {
 };
 
 export function ReviewWorkspace({
-  review, summary, list, onNavigate, onSelectIssue, onNewReview, actorNames = {},
+  review, summary, list, onNavigate, onSelectIssue, onNewReview, onOpenEvidence, actorNames,
 }: Props) {
   const [query,setQuery] = useState('');
   const [filter,setFilter] = useState<Filter>('all');
   const [page,setPage] = useState(1);
   const rows = useMemo(() => buildReviewRows(review, summary, list), [review,summary,list]);
   const metrics = useMemo(() => overviewMetrics(rows), [rows]);
-  const visible = useMemo(() => filterReviewRows(rows,query,filter), [rows,query,filter]);
+  const visible = useMemo(() => (filterReviewRows(rows,query,'all') as ReviewListItem[])
+    .filter(item => filter === 'all' || item.status === filter), [rows,query,filter]);
   const pageCount = Math.max(1,Math.ceil(visible.length/PAGE_SIZE));
   const currentPage = Math.min(page,pageCount);
   const pageRows = visible.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
@@ -51,16 +54,15 @@ export function ReviewWorkspace({
   const events = useMemo(() => recentReviewActivity(review,3), [review]);
   const needsAttention = summary.status === 'revalidation' || summary.status === 'rejected' || summary.blockers.length > 0 || summary.mandatory === 0;
   const countFor = (id: Filter) => id === 'all' ? metrics.total
-    : id === 'in-review' ? metrics.inReview
-    : metrics[id];
+    : (rows as ReviewListItem[]).filter(item => item.status === id).length;
 
   return <div className="rw-page">
     <div className="rw-intro">
       <div><p className="rw-eyebrow">REVIEW WORKSPACE</p>
         <p className="rw-lead">Review the latest Jira evidence, requirements and decisions in one place.</p></div>
-      <button type="button" className="primary rw-open" onClick={onNewReview}>
+      {onNewReview && <button type="button" className="primary rw-open" onClick={onNewReview}>
         <Plus size={16} aria-hidden="true"/> Open Jira issue
-      </button>
+      </button>}
     </div>
     <section className="metrics rw-metrics" aria-label="Review overview">
       <StatCard value={metrics.total} label="Tracked" icon={ClipboardCheck}/>
@@ -139,7 +141,7 @@ export function ReviewWorkspace({
         </div>
         <div className="rw-detail-actions">
           <button type="button" className="primary" onClick={() => onNavigate('Requirements')}>Requirements <ArrowRight size={15}/></button>
-          <button type="button" onClick={() => onNavigate('Evidence')}>Evidence <ArrowRight size={15}/></button>
+          {onOpenEvidence && <button type="button" onClick={onOpenEvidence}>Evidence <ArrowRight size={15}/></button>}
         </div>
       </Panel>
 
@@ -149,7 +151,7 @@ export function ReviewWorkspace({
             <div className="rw-decision-header"><StatusBadge state={decision.type}/>
               {summary.status === 'revalidation' && <span className="rw-revalidation-flag">Historical approval · revalidate</span>}</div>
             <dl>
-              <div><dt>Recorded by</dt><dd title={decision.actor}>{actorLabel(decision.actor,actorNames)}</dd></div>
+              <div><dt>Recorded by</dt><dd title={decision.actor}>{actorNames ? actorLabel(decision.actor,actorNames) : (decision.actor || 'Not recorded')}</dd></div>
               <div><dt>When</dt><dd>{formatDate(decision.createdAt)}</dd></div>
               <div><dt>Mandatory checks approved</dt><dd>{decision.type === 'approved' ? decision.snapshotCount : 'Not applicable'}</dd></div>
             </dl>
@@ -178,7 +180,7 @@ export function ReviewWorkspace({
       {events.length ? <ol>{events.map((event:AuditEvent) => <li key={event.id}>
         <span className="rw-timeline-dot"><History size={14}/></span>
         <div><strong>{event.description}</strong>
-          <small title={event.actor}>{actorLabel(event.actor,actorNames)} · {formatDate(event.createdAt)}</small></div>
+          <small title={event.actor}>{actorNames ? actorLabel(event.actor,actorNames) : (event.actor || 'Not recorded')} · {formatDate(event.createdAt)}</small></div>
       </li>)}</ol> : <p className="muted">No events recorded yet.</p>}
     </Panel>
   </div>;

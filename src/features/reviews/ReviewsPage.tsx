@@ -11,4 +11,4 @@ interface Props {
   actorNames?: Record<string, string>;
 }
 
-export function ReviewsPage(props: Props) { return <ReviewWorkspace {...props} />; }
+export function ReviewsPage(props: Props) { return <ReviewWorkspace {...props} onOpenEvidence={() => props.onNavigate('Evidence')} />; }
