@@ -1,0 +1,10 @@
+.settings-page { display: grid; gap: 16px; min-width: 0; }
+.settings-page .settings-policies { margin: 0; }
+.settings-page .settings-policy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 20px; align-items: start; overflow-wrap: anywhere; }
+.settings-page .settings-policy dt { min-width: 0; }
+.settings-page .settings-policy dd { margin: 0; text-align: end; font-weight: 600; min-width: 0; }
+.settings-page .settings-scopes { padding-inline-start: 20px; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .settings-page .settings-policy { grid-template-columns: minmax(0, 1fr); }
+  .settings-page .settings-policy dd { text-align: start; }
+}
