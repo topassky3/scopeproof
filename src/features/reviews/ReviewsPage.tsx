@@ -5,8 +5,10 @@ interface Props {
   review: ReviewData;
   summary: ReviewSummary;
   list: ReviewListItem[];
-  onNavigate: (page: 'Requirements' | 'History') => void;
+  onNavigate: (page: 'Requirements' | 'Evidence' | 'History') => void;
   onSelectIssue: (key: string) => void;
+  onNewReview: () => void;
+  actorNames?: Record<string, string>;
 }
 
-export function ReviewsPage(props: Props) { return <ReviewWorkspace {...props}/>; }
+export function ReviewsPage(props: Props) { return <ReviewWorkspace {...props} onOpenEvidence={() => props.onNavigate('Evidence')} />; }
