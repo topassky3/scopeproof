@@ -74,3 +74,28 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
  .sp-page-icon { display:none; }
  .sp-footer { flex-wrap:wrap; }
 }
+
+
+/* Mobile page header: keep page actions fully visible rather than squeezed beside the title. */
+@media (max-width:760px) {
+ .sp-page-header { flex-direction:column;align-items:stretch;gap:12px; }
+ .sp-page-title,.sp-page-title>div { min-width:0;max-width:100%; }
+ .sp-page-title h1,.sp-page-title p { overflow-wrap:anywhere; }
+ .sp-page-header>.actions { width:100%;min-width:0; }
+ .sp-page-header>.actions>button { width:100%;min-width:0;justify-content:center;white-space:normal; }
+}
+
+
+/* Mobile editors: constrain the dialog to the viewport, including form controls. */
+@media (max-width:760px) {
+ .overlay { grid-template-columns:minmax(0,1fr);padding:12px; }
+ .overlay .modal {
+   box-sizing:border-box;min-width:0;width:100%;max-width:500px;
+   max-height:calc(100dvh - 24px);overflow-y:auto;overflow-x:hidden;
+   padding:16px;
+ }
+ .overlay .modal .field,.overlay .modal .field input,
+ .overlay .modal .field select,.overlay .modal .field textarea { min-width:0;max-width:100%; }
+ .overlay .modal .footer-actions { min-width:0;flex-wrap:wrap; }
+ .overlay .modal .footer-actions button { min-width:0; }
+}

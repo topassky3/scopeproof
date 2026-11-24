@@ -98,3 +98,55 @@ test('Evidence does not invent historical wording when a legacy version record i
   assert.equal(rows[0].requirementTitle, 'Historical description unavailable');
   assert.equal(rows[0].currentRequirementTitle, 'Current requirement title');
 });
+
+test('Evidence target stays independent of selected history and validates current requirements', () => {
+  const source = readFileSync(new URL('../src/features/evidence/EvidencePage.tsx', import.meta.url), 'utf8');
+  const selectRow = source.match(/function selectRow\(row: EvidenceViewRow\) \{([\s\S]*?)\n  \}/)?.[1];
+  assert.ok(selectRow, 'Evidence row selection handler must exist');
+  assert.match(selectRow, /setSelectedId\(row\.id\)/);
+  assert.doesNotMatch(selectRow, /setRequirementId/);
+  assert.match(source, /review\.requirements\.some\(row => row\.id === requirementId\)/);
+  assert.match(source, /disabled=\{!targetRequirementId\}/);
+});
+
+test('local preview listens for cross-tab updates and cleans up its listener', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /window\.addEventListener\('storage', onStorage\)/);
+  assert.match(source, /window\.removeEventListener\('storage', onStorage\)/);
+  assert.match(source, /event\.key !== key/);
+  assert.match(source, /incoming\.revision > current\.revision/);
+});
+
+test('local preview rejects stale writes before applying commands', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /stored\.revision !== review\.revision/);
+  assert.match(source, /setReview\(stored\)/);
+  assert.match(source, /Another tab updated this review/);
+  assert.match(source, /updated=applyCommand\(review,command,'local-preview'\)/);
+});
+
+test('local preview editor rejects a form opened before a cross-tab revision change', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /setEditorRevision\(review\?\.revision \?\? null\)/);
+  assert.match(source, /preview && editorRevision !== review\.revision/);
+  assert.match(source, /This form was opened before another tab changed the review/);
+  assert.match(source, /Close it and reopen to verify the latest data/);
+});
+
+test('approval action is disabled when there are zero mandatory requirements', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /disabled=\{busy \|\| summary\.mandatory === 0 \|\| summary\.blockers\.length > 0 \|\| summary\.status === 'approved'\}/);
+});
+
+test('approval banner distinguishes empty, revalidation, approved and ready states', () => {
+  const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /summary\.mandatory === 0 \? 'Add at least one mandatory requirement before approval\.'/);
+  assert.match(source, /summary\.status === 'revalidation' \? 'A previous approval requires revalidation\.'/);
+  assert.match(source, /summary\.status === 'approved' \? 'This review is approved for the current evidence snapshot\.'/);
+});
+
+test('Requirements details follow filtered results instead of hidden selection', () => {
+  const source = readFileSync(new URL('../src/features/requirements/RequirementsPage.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const selected = matching\.find\(row => row\.id === selectedId\) \?\? matching\[0\]/);
+  assert.match(source, /const evidence = selected \? evidenceOverview\(selected, review\.evidence \?\? \[\]\) : null/);
+});
