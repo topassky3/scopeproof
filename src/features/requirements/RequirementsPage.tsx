@@ -79,7 +79,7 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
   const metrics = requirementMetrics(summary);
   const matching = useMemo(() => findRequirements(summary.rows, search, filter) as RequirementRow[],
     [summary.rows, search, filter]);
-  const selected = summary.rows.find(row => row.id === selectedId) ?? summary.rows[0];
+  const selected = matching.find(row => row.id === selectedId) ?? matching[0];
   const evidence = selected ? evidenceOverview(selected, review.evidence ?? []) : null;
   const hasDecision = review.approvals.length > 0;
   const requiresAttention = metrics.attention > 0;
