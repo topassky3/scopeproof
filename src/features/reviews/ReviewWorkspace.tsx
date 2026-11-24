@@ -9,6 +9,10 @@ import type { AuditEvent, ReviewData, ReviewListItem, ReviewSummary } from '../.
 import { buildReviewRows, filterReviewRows, overviewMetrics, recentReviewActivity, reviewImpact } from '../overview/overview-model.js';
 import { actorLabel } from '../../shared/actors/actor-names.mjs';
 import { latestReviewDecision, reviewActionMessage } from './reviews-model.mjs';
+import type { ReviewIntelligence } from '../../shared/review-intelligence.js';
+import { projectOverviewRows } from '../overview/overview-intelligence.js';
+import { reviewDecisionPresentation } from './reviews-intelligence.js';
+import { ReviewPlanPanel } from './ReviewPlanPanel';
 import './reviews.css';
 
 interface Props {
@@ -20,8 +24,10 @@ interface Props {
   onNewReview?: () => void;
   onOpenEvidence?: () => void;
   actorNames?: Record<string, string>;
+  // Only the Forge wrapper supplies this; Django keeps its existing projection.
+  intelligence?: ReviewIntelligence;
 }
-type Filter = 'all' | 'approved' | 'revalidation' | 'in-review' | 'ready' | 'pending' | 'rejected';
+type Filter = 'all' | 'approved' | 'revalidation' | 'in-review' | 'ready' | 'pending' | 'rejected' | 'inspection-required';
 const FILTERS: { id: Filter; label: string }[] = [
   { id:'all',label:'All' }, { id:'approved',label:'Approved' },
   { id:'revalidation',label:'Revalidation' }, { id:'in-review',label:'In review' },
@@ -37,12 +43,17 @@ const formatDate = (value: string) => {
 };
 
 export function ReviewWorkspace({
-  review, summary, list, onNavigate, onSelectIssue, onNewReview, onOpenEvidence, actorNames,
+  review, summary, list, onNavigate, onSelectIssue, onNewReview, onOpenEvidence, actorNames, intelligence,
 }: Props) {
   const [query,setQuery] = useState('');
   const [filter,setFilter] = useState<Filter>('all');
   const [page,setPage] = useState(1);
-  const rows = useMemo(() => buildReviewRows(review, summary, list), [review,summary,list]);
+  const presentation = intelligence ? reviewDecisionPresentation(intelligence) : null;
+  const inspectionRequired = intelligence?.kind === 'unavailable';
+  const rows = useMemo(() => {
+    const saved = buildReviewRows(review, summary, list);
+    return intelligence ? projectOverviewRows(saved, review.issueKey, intelligence) : saved;
+  }, [review,summary,list,intelligence]);
   const metrics = useMemo(() => overviewMetrics(rows), [rows]);
   const visible = useMemo(() => (filterReviewRows(rows,query,'all') as ReviewListItem[])
     .filter(item => filter === 'all' || item.status === filter), [rows,query,filter]);
@@ -50,9 +61,9 @@ export function ReviewWorkspace({
   const currentPage = Math.min(page,pageCount);
   const pageRows = visible.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
   const decision = useMemo(() => latestReviewDecision(review), [review]);
-  const impact = useMemo(() => reviewImpact(review,summary), [review,summary]);
+  const impact = useMemo(() => inspectionRequired ? null : reviewImpact(review,summary), [review,summary,inspectionRequired]);
   const events = useMemo(() => recentReviewActivity(review,3), [review]);
-  const needsAttention = summary.status === 'revalidation' || summary.status === 'rejected' || summary.blockers.length > 0 || summary.mandatory === 0;
+  const needsAttention = inspectionRequired || summary.status === 'revalidation' || summary.status === 'rejected' || summary.blockers.length > 0 || summary.mandatory === 0;
   const countFor = (id: Filter) => id === 'all' ? metrics.total
     : (rows as ReviewListItem[]).filter(item => item.status === id).length;
 
@@ -70,16 +81,17 @@ export function ReviewWorkspace({
       <StatCard value={metrics.revalidation} label="Revalidation" icon={RefreshCw} tone="bad"/>
       <StatCard value={metrics.inReview} label="In progress" icon={Layers3}/>
     </section>
+    {intelligence && <p className="muted">Project totals use saved statuses. Planning integrity is checked only for the selected review.</p>}
     <section className={'rw-alert' + (needsAttention ? ' rw-alert-attention' : ' rw-alert-ok')}
       aria-label="Selected review status">
       {needsAttention ? <AlertTriangle size={21} aria-hidden="true"/> : <ShieldCheck size={21} aria-hidden="true"/>}
-      <div><strong>{summary.status === 'revalidation' ? 'Explicit reapproval required'
+      <div><strong>{presentation ? presentation.heading : summary.status === 'revalidation' ? 'Explicit reapproval required'
         : summary.mandatory === 0 ? 'No mandatory requirements yet'
         : summary.blockers.length ? 'Some mandatory requirements lack passing evidence'
         : summary.status === 'approved' ? 'Current review approved'
         : summary.status === 'rejected' ? 'Review rejected'
         : 'Review ready for decision'}</strong>
-        <p>{reviewActionMessage(summary)}</p>
+        <p>{presentation ? presentation.message : reviewActionMessage(summary)}</p>
       </div>
       <button type="button" onClick={() => onNavigate('Requirements')}>Requirements <ArrowRight size={14}/></button>
     </section>
@@ -95,6 +107,7 @@ export function ReviewWorkspace({
           <select aria-label="Filter reviews by status" value={filter}
             onChange={event => {setFilter(event.target.value as Filter);setPage(1);}}>
             {FILTERS.map(item => <option key={item.id} value={item.id}>{item.label} ({countFor(item.id)})</option>)}
+            {intelligence && <option value="inspection-required">Inspection ({countFor('inspection-required')})</option>}
           </select>
         </label>
       </div>
@@ -106,8 +119,8 @@ export function ReviewWorkspace({
           <td data-label="Issue"><button type="button" className="rw-link"
             onClick={() => onSelectIssue(item.issueKey)}>{item.issueKey}</button></td>
           <td data-label="Summary" className="rw-summary" title={item.summary}>{item.summary}</td>
-          <td data-label="Status"><StatusBadge state={item.status}/></td>
-          <td data-label="Coverage"><CoverageBar covered={item.covered} total={item.mandatory}/></td>
+          <td data-label="Status">{item.status === 'inspection-required' ? <strong>Inspection required</strong> : <StatusBadge state={item.status}/>}</td>
+          <td data-label="Coverage">{item.status === 'inspection-required' ? 'Unavailable' : intelligence && item.mandatory === 0 ? 'N/A' : <CoverageBar covered={item.covered} total={item.mandatory}/>}</td>
           <td data-label="Action"><button type="button" className="rw-row-action"
             aria-label={'Open review ' + item.issueKey} onClick={() => onSelectIssue(item.issueKey)}>
             Open <ArrowRight size={14} aria-hidden="true"/></button></td>
@@ -125,13 +138,14 @@ export function ReviewWorkspace({
     </Panel>
 
     <div className="rw-bottom">
-      <Panel title="Selected review" className="rw-detail" aside={<StatusBadge state={summary.status}/>}>
+      <Panel title="Selected review" className="rw-detail" aside={inspectionRequired ? <strong>Inspection required</strong> : <StatusBadge state={summary.status}/>}>
         <div className="rw-issue-heading"><FileCheck2 size={21} aria-hidden="true"/>
           <strong>{review.issueKey}</strong></div>
         <p className="rw-issue-summary">{review.summary}</p>
+        {inspectionRequired ? <p role="alert">Coverage and recovery advice unavailable.</p> : <>
         <div className="rw-coverage-label"><span>Mandatory requirement coverage</span>
-          <strong>{summary.covered}/{summary.mandatory}</strong></div>
-        <CoverageBar covered={summary.covered} total={summary.mandatory}/>
+          <strong>{intelligence && summary.mandatory === 0 ? 'N/A' : `${summary.covered}/${summary.mandatory}`}</strong></div>
+        {(!intelligence || summary.mandatory > 0) && <CoverageBar covered={summary.covered} total={summary.mandatory}/>}
         <div className="rw-requirements">
           {summary.rows.map(row => <div className="rw-requirement" key={row.id}>
             <FileText size={16} aria-hidden="true"/><div><strong>{row.id} · v{row.version}</strong>
@@ -139,21 +153,22 @@ export function ReviewWorkspace({
           </div>)}
           {!summary.rows.length && <p className="muted">No requirements recorded yet.</p>}
         </div>
+        </>}
         <div className="rw-detail-actions">
           <button type="button" className="primary" onClick={() => onNavigate('Requirements')}>Requirements <ArrowRight size={15}/></button>
-          {onOpenEvidence && <button type="button" onClick={onOpenEvidence}>Evidence <ArrowRight size={15}/></button>}
+          {onOpenEvidence && <button type="button" disabled={inspectionRequired} onClick={onOpenEvidence}>Evidence <ArrowRight size={15}/></button>}
         </div>
       </Panel>
 
       <div className="rw-side">
         <Panel title="Latest decision" className="rw-decision">
           {decision ? <>
-            <div className="rw-decision-header"><StatusBadge state={decision.type}/>
-              {summary.status === 'revalidation' && <span className="rw-revalidation-flag">Historical approval · revalidate</span>}</div>
+            <div className="rw-decision-header">{inspectionRequired ? <strong>Recorded decision: {decision.type} (not validated)</strong> : <StatusBadge state={decision.type}/>}
+              {!inspectionRequired && summary.status === 'revalidation' && <span className="rw-revalidation-flag">Historical approval · revalidate</span>}</div>
             <dl>
               <div><dt>Recorded by</dt><dd title={decision.actor}>{actorNames ? actorLabel(decision.actor,actorNames) : (decision.actor || 'Not recorded')}</dd></div>
               <div><dt>When</dt><dd>{formatDate(decision.createdAt)}</dd></div>
-              <div><dt>Mandatory checks approved</dt><dd>{decision.type === 'approved' ? decision.snapshotCount : 'Not applicable'}</dd></div>
+              <div><dt>{inspectionRequired ? 'Recorded snapshot entries' : 'Mandatory checks approved'}</dt><dd>{decision.type === 'approved' ? decision.snapshotCount : 'Not applicable'}</dd></div>
             </dl>
             {decision.note && <p className="rw-decision-note">{decision.note}</p>}
           </> : <div className="rw-empty"><Clock3 size={24}/><strong>No decision recorded</strong>
@@ -161,7 +176,7 @@ export function ReviewWorkspace({
           <button type="button" className="rw-link rw-history-link"
             onClick={() => onNavigate('History')}>View full audit trail <ArrowRight size={14}/></button>
         </Panel>
-        <Panel title="Change impact" className="rw-impact">
+        {intelligence ? <ReviewPlanPanel intelligence={intelligence} historicalOutdatedEvidence={impact?.outdatedEvidence ?? null}/> : impact && <Panel title="Change impact" className="rw-impact">
           <div className="rw-impact-grid">
             <div><strong>{summary.blockers.length}</strong><span>Mandatory checks needing evidence</span></div>
             <div><strong>{impact.outdatedEvidence}</strong><span>Historical evidence records</span></div>
@@ -171,7 +186,7 @@ export function ReviewWorkspace({
             ? 'This review requires an explicit new approval, even when current evidence passes.'
             : impact.outdatedEvidence ? 'Older evidence is retained for audit, without counting toward current coverage.'
             : 'No pending version-related impact was found in the selected review.'}</p>
-        </Panel>
+        </Panel>}
       </div>
     </div>
 

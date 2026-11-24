@@ -1,7 +1,10 @@
 import { ReviewWorkspace } from './ReviewWorkspace';
 import type { ReviewData, ReviewListItem, ReviewSummary } from '../../shared/types/review';
 
+import type { ReviewIntelligence } from '../../shared/review-intelligence.js';
+
 interface Props {
+  intelligence: ReviewIntelligence;
   review: ReviewData;
   summary: ReviewSummary;
   list: ReviewListItem[];

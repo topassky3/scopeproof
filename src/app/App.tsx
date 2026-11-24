@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, AlertTriangle, CheckCircle2, ArrowRight, X, Download, Save, Inbox } from 'lucide-react';
 import { applyCommand, exampleReview, summarize } from '../domain.js';
 import { AppShell, PageHeader } from '../shared/layout/AppShell';
 import type { PageId } from '../shared/config/navigation';
 import { OverviewPage } from '../features/overview/OverviewPage';
 import { ReviewsPage } from '../features/reviews/ReviewsPage';
+import { buildReviewIntelligence } from '../shared/review-intelligence.js';
+import { reviewDecisionPresentation } from '../features/reviews/reviews-intelligence.js';
 import { LocalReviewsPage } from '../features/reviews/LocalReviewsPage';
 import { RequirementsPage } from '../features/requirements/RequirementsPage';
 import { EvidencePage } from '../features/evidence/EvidencePage';
@@ -51,6 +53,9 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [note,setNote]=useState('');
   const [mandatory,setMandatory]=useState(true);
   const summary:any=review?summarize(review):null;
+  const intelligence = useMemo(() => review && !sessionReviews ? buildReviewIntelligence(review) : null, [review,sessionReviews]);
+  const decisionPresentation = intelligence ? reviewDecisionPresentation(intelligence) : null;
+  const decisionInspectionRequired = decisionPresentation?.decisionBlocked === true;
   const actorNames = useActorNames(review, !preview);
 
   useEffect(()=>{ if (preview) return;
@@ -115,6 +120,9 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   }
   async function change(type:string,props:Record<string,any>={}){
     if(!review)return false;
+    if ((type === 'approve' || type === 'reject') && buildReviewIntelligence(review).kind === 'unavailable') {
+      setError('Inspect inconsistent records before recording another decision.'); return false;
+    }
     setBusy(true);setError('');setNotice('');
     try {const command={type,expectedRevision:review.revision,...props};let updated:any;
       if(preview) {
@@ -161,7 +169,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
         {active === 'Overview' && <OverviewPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}
           onNewReview={() => { issueInputRef.current?.focus(); issueInputRef.current?.select(); }}
           onAddEvidence={(id) => open('evidence', id)} actorNames={actorNames} />}
-        {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}
+        {active === 'Reviews' && <ReviewsPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview} intelligence={intelligence!}
           onNewReview={() => { issueInputRef.current?.focus(); issueInputRef.current?.select(); }} actorNames={actorNames} />}
         {active === 'Requirements' && <RequirementsPage summary={summary} review={review} openEditor={open}/>}
         {active === 'Evidence' && <EvidencePage review={review} summary={summary} openEditor={open} actorNames={actorNames}/>}
@@ -169,9 +177,9 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
         {active === 'Reports' && <ReportsPage review={review} summary={summary}/>}
         {active === 'Settings' && <SettingsPage preview={preview}/>}
         {['Overview','Reviews','Requirements'].includes(active) && <div className="panel approval">
-          <div><h2>Review decision</h2><p>{summary.mandatory === 0 ? 'Add at least one mandatory requirement before approval.' : summary.status === 'revalidation' ? 'A previous approval requires revalidation.' : summary.blockers.length ? `${summary.blockers.length} mandatory requirements still need valid evidence.` : summary.status === 'approved' ? 'This review is approved for the current evidence snapshot.' : 'All mandatory requirements have current passing evidence. An explicit approval is still required.'}</p></div>
-          <div className="inline-actions"><button type="button" onClick={() => open('reject')}>Reject with reason</button>
-            <button type="button" className="primary" disabled={busy || summary.mandatory === 0 || summary.blockers.length > 0 || summary.status === 'approved'} onClick={() => change('approve',{note:'Verified current evidence'})}><CheckCircle2 size={16}/> Approve review</button>
+          <div><h2>Review decision</h2><p>{decisionPresentation ? decisionPresentation.message : summary.mandatory === 0 ? 'Add at least one mandatory requirement before approval.' : summary.status === 'revalidation' ? 'A previous approval requires revalidation.' : summary.blockers.length ? `${summary.blockers.length} mandatory requirements still need valid evidence.` : summary.status === 'approved' ? 'This review is approved for the current evidence snapshot.' : 'All mandatory requirements have current passing evidence. An explicit approval is still required.'}</p></div>
+          <div className="inline-actions"><button type="button" disabled={busy || decisionInspectionRequired} onClick={() => open('reject')}>Reject with reason</button>
+            <button type="button" className="primary" disabled={busy || summary.mandatory === 0 || summary.blockers.length > 0 || summary.status === 'approved' || decisionInspectionRequired} onClick={() => change('approve',{note:'Verified current evidence'})}><CheckCircle2 size={16}/> Approve review</button>
           </div>
         </div>}
       </>}

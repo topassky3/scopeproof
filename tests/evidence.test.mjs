@@ -135,7 +135,7 @@ test('local preview editor rejects a form opened before a cross-tab revision cha
 
 test('approval action is disabled when there are zero mandatory requirements', () => {
   const source = readFileSync(new URL('../src/app/App.tsx', import.meta.url), 'utf8');
-  assert.match(source, /disabled=\{busy \|\| summary\.mandatory === 0 \|\| summary\.blockers\.length > 0 \|\| summary\.status === 'approved'\}/);
+  assert.match(source, /disabled=\{busy \|\| summary\.mandatory === 0 \|\| summary\.blockers\.length > 0 \|\| summary\.status === 'approved' \|\| decisionInspectionRequired\}/);
 });
 
 test('approval banner distinguishes empty, revalidation, approved and ready states', () => {
