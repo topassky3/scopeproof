@@ -8,6 +8,9 @@ import type { OpenEditor, ReviewData, ReviewSummary } from '../../shared/types/r
 import { actorLabel } from '../../shared/actors/actor-names.mjs';
 import { buildEvidenceRows, evidenceMetrics, filterEvidenceRows } from './evidence-model.mjs';
 import type { EvidenceViewRow } from './evidence-model.mjs';
+import type { ReviewIntelligence } from '../../shared/review-intelligence.js';
+import { evidenceTrace } from '../../shared/traceability-intelligence.js';
+import { reviewDecisionPresentation } from '../reviews/reviews-intelligence.js';
 import './evidence.css';
 
 interface EvidencePageProps {
@@ -15,6 +18,7 @@ interface EvidencePageProps {
   summary: ReviewSummary;
   openEditor: OpenEditor;
   actorNames?: Record<string, string>;
+  intelligence: ReviewIntelligence;
 }
 
 function ResultTag({ result }: { result: 'passed' | 'failed' }) {
@@ -37,7 +41,12 @@ function RecordDate({ value }: { value?: string }) {
     : <><span>{date.toLocaleDateString()}</span>{' '}<span>{date.toLocaleTimeString()}</span></>}</time>;
 }
 
-export function EvidencePage({ review, summary, openEditor, actorNames = {} }: EvidencePageProps) {
+export function EvidencePage(props: EvidencePageProps) {
+  if (props.intelligence.kind === 'unavailable') return <Panel title="Inspection required"><p role="alert">Evidence coverage and recovery advice are unavailable. Inspect inconsistent records before continuing.</p><ul>{props.intelligence.plan.issues.map(issue => <li key={issue}>{issue}</li>)}</ul></Panel>;
+  return <AvailableEvidence {...props} intelligence={props.intelligence}/>;
+}
+
+function AvailableEvidence({ review, summary, openEditor, actorNames = {}, intelligence }: Omit<EvidencePageProps, 'intelligence'> & { intelligence: Extract<ReviewIntelligence, { kind: 'available' }> }) {
   const rows = useMemo(() => buildEvidenceRows(review), [review]);
   const metrics = useMemo(() => evidenceMetrics(rows), [rows]);
   const [query, setQuery] = useState('');
@@ -52,7 +61,9 @@ export function EvidencePage({ review, summary, openEditor, actorNames = {} }: E
   const targetRequirementId = review.requirements.some(row => row.id === requirementId)
     ? requirementId
     : (review.requirements[0]?.id ?? '');
-  const needsReview = summary.blockers.length > 0 || summary.mandatory === 0 || summary.status === 'revalidation';
+  const needsReview = summary.blockers.length > 0 || summary.mandatory === 0 || summary.status === 'revalidation' || summary.status === 'rejected';
+  const presentation = reviewDecisionPresentation(intelligence);
+  const trace = selected ? evidenceTrace(intelligence, selected) : null;
 
   function selectRow(row: EvidenceViewRow) {
     setSelectedId(row.id);
@@ -68,18 +79,9 @@ export function EvidencePage({ review, summary, openEditor, actorNames = {} }: E
 
     <section className={'ev-notice ' + (needsReview ? 'ev-notice-alert' : 'ev-notice-ok')} aria-label="Evidence impact">
       {needsReview ? <AlertTriangle size={21} aria-hidden="true" /> : <ShieldCheck size={21} aria-hidden="true" />}
-      <div><strong>{summary.mandatory === 0
-        ? 'Add a mandatory requirement to begin'
-        : summary.status === 'revalidation'
-          ? 'Prior approval requires revalidation'
-          : summary.blockers.length
-            ? summary.blockers.length + ' mandatory requirement(s) lack passing current evidence'
-            : 'All mandatory requirements have passing current evidence'}</strong>
-        <p>{summary.mandatory === 0
-          ? 'At least one mandatory requirement and current passing evidence are needed before approval.'
-          : summary.status === 'revalidation'
-            ? 'Evidence does not automatically renew an earlier approval. An authorized reviewer must decide again.'
-            : 'Evidence result and applicability are different. A passed test for an older version does not count towards approval.'}</p>
+      <div><strong>{presentation.heading}</strong>
+        <p>{presentation.message}</p>
+        <p>Evidence result and applicability are different. A passed test for an older version does not count towards approval.</p>
       </div>
     </section>
 
@@ -149,12 +151,20 @@ export function EvidencePage({ review, summary, openEditor, actorNames = {} }: E
                     ? 'Latest evidence for the current requirement version. Approval still requires an explicit decision.'
                     : 'Requirement reference or version could not be matched.'}
           </div>
+          {trace && <div className="ev-detail-note" aria-label="Evidence approval traceability">
+            <b>Approval traceability · revision {intelligence.revision}</b>
+            <p>{trace.mandatory ? 'Mandatory approval scope.' : 'Outside mandatory approval scope.'}</p>
+            {trace.inLatestApprovedSnapshot && <p>Referenced by the latest recorded approval snapshot.</p>}
+            {trace.retained && <p>Current passing evidence retained in the plan.</p>}
+            {trace.mandatory && !trace.retained && intelligence.plan.minimumActions !== null && <p>Not retained in the current recovery plan.</p>}
+            {intelligence.plan.disposition === 'human-review' && <p>No automatic recovery plan; human reconsideration is required.</p>}
+          </div>}
           {selectedRequirement && <p className="ev-requirement-state">Requirement status: <StatusBadge state={summary.rows.find(r => r.id === selectedRequirement.id)?.state || 'missing'} /></p>}
         </> : <p className="muted">{rows.length ? 'No evidence matches the current filters.' : 'No evidence yet. Add a test result to get started.'}</p>}
       </Panel>
       <Panel title="Coverage & new evidence" className="ev-actions-panel">
         <div className="ev-coverage"><span>Mandatory requirement coverage</span>
-          <CoverageBar covered={summary.covered} total={summary.mandatory} /></div>
+          {summary.mandatory ? <CoverageBar covered={summary.covered} total={summary.mandatory} /> : <span>N/A</span>}</div>
         <p className="ev-context">Add a new test result to the latest version of a requirement. Historical records remain unchanged.</p>
         <label className="ev-select ev-target">Target requirement
           <select value={targetRequirementId} onChange={event => setRequirementId(event.target.value)}>

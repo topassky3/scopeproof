@@ -83,7 +83,60 @@ test('An empty review is not reported as having passed mandatory coverage', () =
 test('Requirements only shows sample-data disclaimer in development', () => {
   const source = readFileSync(new URL('../src/features/requirements/RequirementsPage.tsx', import.meta.url), 'utf8');
   assert.match(source, /\{import\.meta\.env\.DEV && <div className="rq-preview-help">/);
-  assert.match(source, /metrics\.mandatory === 0\s*\? 'Add a mandatory requirement to begin'/);
-  assert.match(source, /metrics\.mandatory === 0\s*\? 'Create at least one mandatory requirement/);
-  assert.match(source, /const needsReview = requiresAttention \|\| metrics\.mandatory === 0 \|\| summary\.status === 'revalidation'/);
+  assert.match(source, /const needsReview = requiresAttention \|\| metrics\.mandatory === 0 \|\| summary\.status === 'revalidation' \|\| summary\.status === 'rejected'/);
+  assert.match(source, /const presentation = reviewDecisionPresentation\(intelligence\)/);
+  assert.match(source, /<strong>\{presentation.heading\}<\/strong>/);
+  assert.match(source, /<p>\{presentation.message\}<\/p>/);
+});
+
+test('Requirements shared decision presentation preserves approval invariants', async () => {
+  const { buildReviewIntelligence } =
+    await import('../src/shared/review-intelligence.js');
+  const { reviewDecisionPresentation } =
+    await import('../src/features/reviews/reviews-intelligence.js');
+
+  const present = review =>
+    reviewDecisionPresentation(buildReviewIntelligence(review));
+
+  const empty = {
+    requirements: [], evidence: [],
+    approvals: [], events: [], revision: 0
+  };
+
+  const optional = command(empty, 'addRequirement', {
+    title: 'Optional requirement', mandatory: false
+  });
+
+  for (const review of [empty, optional]) {
+    assert.equal(summarize(review).mandatory, 0);
+    assert.match(present(review).heading, /no mandatory requirements/i);
+    assert.match(present(review).message, /define mandatory scope.*passing evidence/i);
+    assert.throws(() => command(review, 'approve'), /APPROVAL_BLOCKED/);
+  }
+
+  const stale = exampleReview();
+  assert.match(present(stale).heading, /reapproval/i);
+  assert.match(present(stale).message, /passing evidence/i);
+
+  const full = command(stale, 'addEvidence', {
+    requirementId: 'RQ-01',
+    title: 'Fresh passing evidence',
+    result: 'passed'
+  });
+
+  assert.equal(summarize(full).covered, summarize(full).mandatory);
+  assert.match(present(full).message, /fresh explicit approval/i);
+
+  const approved = command(full, 'approve');
+  assert.equal(present(approved).heading, 'Current review approved');
+
+  const rejected = command(full, 'reject', {
+    note: 'Requires human reconsideration'
+  });
+
+  assert.equal(present(rejected).heading, 'Review rejected');
+
+  const invalid = structuredClone(approved);
+  invalid.evidence.push(structuredClone(invalid.evidence[0]));
+  assert.equal(present(invalid).decisionBlocked, true);
 });

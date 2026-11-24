@@ -6,12 +6,17 @@ import {
 import { CoverageBar, Panel, StatusBadge } from '../../shared/components/ui';
 import type { OpenEditor, ReviewData, ReviewSummary, RequirementRow } from '../../shared/types/review';
 import { evidenceOverview, findRequirements, requirementMetrics } from './requirements-view.mjs';
+import type { ReviewIntelligence } from '../../shared/review-intelligence.js';
+import { requirementTrace } from '../../shared/traceability-intelligence.js';
+import { impactReasonLabel } from '../overview/overview-intelligence.js';
+import { reviewDecisionPresentation } from '../reviews/reviews-intelligence.js';
 import './requirements.css';
 
 type RequirementsPageProps = {
   summary: ReviewSummary;
   review: ReviewData;
   openEditor: OpenEditor;
+  intelligence: ReviewIntelligence;
 };
 
 function Metric({ icon: Icon, number, label, detail }: {
@@ -72,7 +77,12 @@ function RequirementsTable({ rows, selectedId, select, openEditor }: {
   </div>;
 }
 
-export function RequirementsPage({ summary, review, openEditor }: RequirementsPageProps) {
+export function RequirementsPage(props: RequirementsPageProps) {
+  if (props.intelligence.kind === 'unavailable') return <Panel title="Inspection required"><p role="alert">Requirement coverage and recovery advice are unavailable. Inspect inconsistent records before continuing.</p><ul>{props.intelligence.plan.issues.map(issue => <li key={issue}>{issue}</li>)}</ul></Panel>;
+  return <AvailableRequirements {...props} intelligence={props.intelligence}/>;
+}
+
+function AvailableRequirements({ summary, review, openEditor, intelligence }: Omit<RequirementsPageProps, 'intelligence'> & { intelligence: Extract<ReviewIntelligence, { kind: 'available' }> }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -81,9 +91,11 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
     [summary.rows, search, filter]);
   const selected = matching.find(row => row.id === selectedId) ?? matching[0];
   const evidence = selected ? evidenceOverview(selected, review.evidence ?? []) : null;
+  const trace = selected ? requirementTrace(intelligence, selected.id) : null;
+  const presentation = reviewDecisionPresentation(intelligence);
   const hasDecision = review.approvals.length > 0;
   const requiresAttention = metrics.attention > 0;
-  const needsReview = requiresAttention || metrics.mandatory === 0 || summary.status === 'revalidation';
+  const needsReview = requiresAttention || metrics.mandatory === 0 || summary.status === 'revalidation' || summary.status === 'rejected';
 
   return <div className="rq-page">
     <section className="rq-overview" aria-label="Requirements overview">
@@ -91,7 +103,7 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
         detail={metrics.optional + ' optional'} />
       <Metric icon={ShieldCheck} number={metrics.mandatory} label="Mandatory"
         detail="Checks for approval" />
-      <Metric icon={FileCheck2} number={String(metrics.covered) + '/' + metrics.mandatory}
+      <Metric icon={FileCheck2} number={metrics.mandatory ? String(metrics.covered) + '/' + metrics.mandatory : 'N/A'}
         label="Coverage" detail="Current passed evidence" />
       <Metric icon={FileClock} number={metrics.attention} label="Need attention"
         detail="Mandatory checks pending" />
@@ -102,20 +114,8 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
       {needsReview ? <AlertTriangle size={20} aria-hidden="true" />
         : <CheckCircle2 size={20} aria-hidden="true" />}
       <div>
-        <strong>{metrics.mandatory === 0
-          ? 'Add a mandatory requirement to begin'
-          : summary.status === 'revalidation'
-            ? 'Prior approval requires revalidation'
-          : requiresAttention ? 'Evidence is needed before approval'
-          : summary.status === 'approved' ? 'Current requirements are approved'
-          : 'All mandatory requirements have valid evidence'}</strong>
-        <p>{metrics.mandatory === 0
-          ? 'Create at least one mandatory requirement and record passing evidence before approval.'
-          : requiresAttention
-            ? metrics.attention + ' mandatory requirement(s) need current passing evidence. Earlier test results stay in history.'
-          : summary.status === 'approved'
-            ? 'The latest decision applies to the current evidence snapshot.'
-            : 'Approval still requires an explicit reviewer decision.'}</p>
+        <strong>{presentation.heading}</strong>
+        <p>{presentation.message}</p>
       </div>
     </section>
 
@@ -170,6 +170,17 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
               {evidence.previousCount} older evidence record(s) retained in history, not counted as current.
             </p>}
           </div>
+          <div className="rq-evidence-box" aria-label="Selected requirement approval impact">
+            <b>Approval impact · revision {intelligence.revision}</b>
+            {trace ? <>
+              <p>Approved version: {trace.impact.previousVersion === null ? 'Not recorded in latest approval' : 'v' + trace.impact.previousVersion} · Current: v{trace.impact.version}</p>
+              <p>Approved evidence: {trace.impact.previousEvidenceId ?? 'Not recorded'} · Current: {trace.impact.evidenceId ?? 'Missing'}</p>
+              {trace.impact.reasons.length > 0 && <ul>{trace.impact.reasons.map(reason => <li key={reason}>{impactReasonLabel(reason)}</li>)}</ul>}
+              {trace.requiresEvidence && <p>Recommended action: obtain current passing evidence.</p>}
+              {trace.retained && <p>Current passing evidence retained in the plan.</p>}
+              {intelligence.plan.disposition === 'human-review' && <p>No automatic recovery plan; human reconsideration is required.</p>}
+            </> : <p>{selected.mandatory ? 'Mandatory diagnostic unavailable for this record.' : 'Optional requirement: outside mandatory approval scope.'}</p>}
+          </div>
           <div className="rq-detail-actions inline-actions">
             <button type="button" onClick={() => openEditor('version', selected.id)}>
               <Plus size={15} aria-hidden="true" /> New version</button>
@@ -190,7 +201,7 @@ export function RequirementsPage({ summary, review, openEditor }: RequirementsPa
           <span>mandatory checks need attention</span>
         </div>
         <div className="rq-coverage"><span>Current mandatory coverage</span>
-          <CoverageBar covered={metrics.covered} total={metrics.mandatory} /></div>
+          {metrics.mandatory ? <CoverageBar covered={metrics.covered} total={metrics.mandatory} /> : <span>N/A</span>}</div>
         {requiresAttention && <ul className="rq-blockers">
           {summary.blockers.map(item => <li key={item.id}>
             <b>{item.id}</b> · {item.state === 'stale' ? 'Outdated evidence'
