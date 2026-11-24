@@ -1,0 +1,7 @@
+.report-page { display: grid; gap: 16px; min-width: 0; }
+.report-page .report-record { border-top: 1px solid rgba(127, 127, 127, .25); padding: 12px 0; overflow-wrap: anywhere; }
+.report-page .report-row { flex-wrap: wrap; gap: 8px; overflow-wrap: anywhere; }
+.report-page .report-row > div { min-width: 0; }
+.report-page .report-metrics { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 8px 0; }
+.report-page .report-record p, .report-page .report-row p { margin: 5px 0; }
+.report-page .report-record ul { padding-inline-start: 20px; }
