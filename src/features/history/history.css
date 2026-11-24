@@ -1,0 +1,20 @@
+/* Feature-scoped additions; retain shared timeline and panel styles. */
+.hist-page {display:grid;gap:16px;min-width:0}
+.hist-metrics {margin:0}
+.hist-workspace {display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+.hist-workspace>.panel {min-width:0;margin:0}
+.hist-toolbar {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.65fr);gap:12px;margin-bottom:18px}
+.hist-toolbar label {display:grid;gap:6px;font-size:12px;font-weight:600}
+.hist-toolbar input,.hist-toolbar select {width:100%;min-width:0;box-sizing:border-box}
+.hist-event {display:grid;gap:5px;width:100%;text-align:left;white-space:normal;overflow-wrap:anywhere;background:var(--sp-surface);color:var(--sp-ink);padding:10px;border:1px solid var(--sp-border);border-radius:8px;justify-content:start}
+.hist-event.hist-selected {border-color:var(--sp-brand);background:var(--sp-blue-soft)}
+.hist-category {font-size:11px;font-weight:700;color:var(--sp-muted)}
+.hist-context {display:flex;align-items:center;gap:8px;margin:0;color:var(--sp-muted);font-size:13px}
+.hist-context svg {flex-shrink:0}
+.hist-details {overflow-wrap:anywhere}
+.hist-details h3 {margin:12px 0 8px}
+.hist-diff {display:grid;gap:8px}
+.hist-diff>div {border:1px solid var(--sp-border);border-radius:8px;padding:12px}
+.hist-diff p {margin:8px 0 0;white-space:pre-wrap}
+@media(max-width:1000px){.hist-workspace{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){.hist-toolbar{grid-template-columns:minmax(0,1fr)}.hist-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.hist-event{min-width:0}}
