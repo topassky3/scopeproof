@@ -12,6 +12,7 @@ import { RequirementsPage } from '../features/requirements/RequirementsPage';
 import { EvidencePage } from '../features/evidence/EvidencePage';
 import { HistoryPage } from '../features/history/HistoryPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
+import { buildReportDiagnostic, buildJsonReport, canPublishReport } from '../features/reports/report-intelligence.js';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { useActorNames } from '../shared/actors/useActorNames';
 import { selectionScope, readSelection, rememberSelection, forgetSelection, matchesProject, type SelectionScope } from './review-selection.mjs';
@@ -54,6 +55,8 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [mandatory,setMandatory]=useState(true);
   const summary:any=review?summarize(review):null;
   const intelligence = useMemo(() => review && !sessionReviews ? buildReviewIntelligence(review) : null, [review,sessionReviews]);
+  const reportDiagnostic = useMemo(() => active === 'Reports' && intelligence ? buildReportDiagnostic(intelligence) : null, [active,intelligence]);
+  const reportPublishable = Boolean(review && summary && reportDiagnostic && canPublishReport(review, summary, reportDiagnostic));
   const decisionPresentation = intelligence ? reviewDecisionPresentation(intelligence) : null;
   const decisionInspectionRequired = decisionPresentation?.decisionBlocked === true;
   const actorNames = useActorNames(review, !preview);
@@ -153,14 +156,19 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
     if(modal==='reject')ok=await change('reject',{note});
     if(ok)setModal(null);
   }
-  function exportReport(){if(!review)return;const data={generatedAt:new Date().toISOString(),review,coverage:summarize(review)};
-    const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
-    const a=document.createElement('a');a.href=url;a.download=`scopeproof-${review.issueKey}.json`;a.click();URL.revokeObjectURL(url);
+  function exportReport(){
+    if(!review || !reportDiagnostic || !reportPublishable || busy)return;
+    try {
+      const data=buildJsonReport(review, summary, reportDiagnostic, new Date().toISOString());
+      const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+      try { const a=document.createElement('a');a.href=url;a.download=`scopeproof-${review.issueKey}.json`;a.click(); }
+      finally { URL.revokeObjectURL(url); }
+    } catch { setError('JSON report could not be exported. Inspect the loaded review and try again.'); }
   }
   return <>
     <AppShell active={active} onNavigate={setActive} projectKey={projectKey} preview={preview}
       sessionUser={localUsername} onLogout={onLogout} loggingOut={loggingOut} sessionError={sessionError}>
-      <PageHeader active={active} projectKey={projectKey} actions={<>{review && active==='Requirements'&&<button className="primary" disabled={busy || decisionInspectionRequired} onClick={()=>open('requirement')}><Plus size={17}/> New requirement</button>}{review && active==='Reports'&&<button className="primary" onClick={exportReport}><Download size={17}/> Export JSON</button>}</>} />
+      <PageHeader active={active} projectKey={projectKey} actions={<>{review && active==='Requirements'&&<button className="primary" disabled={busy || decisionInspectionRequired} onClick={()=>open('requirement')}><Plus size={17}/> New requirement</button>}{review && active==='Reports'&&<button className="primary" disabled={busy || !reportPublishable} onClick={exportReport}><Download size={17}/> Export JSON</button>}</>} />
       {!sessionReviews && preview && <div className="preview-banner">Local preview · sample data only. Jira access and Forge persistence become active after deployment.</div>}
       {error&&<div role="alert" className="error"><AlertTriangle size={17}/>{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
       {notice&&<div role="status" className="notice"><CheckCircle2 size={17}/>{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={15}/></button></div>}
@@ -174,7 +182,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
         {active === 'Requirements' && <RequirementsPage summary={summary} review={review} openEditor={open} intelligence={intelligence!}/>}
         {active === 'Evidence' && <EvidencePage review={review} summary={summary} openEditor={open} actorNames={actorNames} intelligence={intelligence!}/>}
         {active === 'History' && <HistoryPage review={review} actorNames={actorNames}/>}
-        {active === 'Reports' && <ReportsPage review={review} summary={summary}/>}
+        {active === 'Reports' && <ReportsPage review={review} summary={summary} reportDiagnostic={reportDiagnostic!}/>}
         {active === 'Settings' && <SettingsPage preview={preview}/>}
         {['Overview','Reviews','Requirements'].includes(active) && <div className="panel approval">
           <div><h2>Review decision</h2><p>{decisionPresentation ? decisionPresentation.message : summary.mandatory === 0 ? 'Add at least one mandatory requirement before approval.' : summary.status === 'revalidation' ? 'A previous approval requires revalidation.' : summary.blockers.length ? `${summary.blockers.length} mandatory requirements still need valid evidence.` : summary.status === 'approved' ? 'This review is approved for the current evidence snapshot.' : 'All mandatory requirements have current passing evidence. An explicit approval is still required.'}</p></div>

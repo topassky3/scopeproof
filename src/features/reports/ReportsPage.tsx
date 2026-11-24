@@ -4,6 +4,10 @@ import type { ReviewData, ReviewSummary } from '../../shared/types/review';
 import { useState } from 'react';
 import { buildReport } from './report-model.mjs';
 import { downloadReportPdf } from './pdf-report.mjs';
+import { buildReportDiagnostic, canPublishReport } from './report-intelligence.js';
+import { impactReasonLabel } from '../overview/overview-intelligence.js';
+import { reviewDecisionPresentation } from '../reviews/reviews-intelligence.js';
+import type { ReviewIntelligence } from '../../shared/review-intelligence.js';
 import './reports.css';
 
 const recordedDate = (value: string) => {
@@ -13,8 +17,24 @@ const recordedDate = (value: string) => {
   }) : 'Date unavailable';
 };
 
-export function ReportsPage({ review, summary }: { review: ReviewData; summary: ReviewSummary }) {
+type ReportsProps = { review: ReviewData; summary: ReviewSummary; reportDiagnostic: ReturnType<typeof buildReportDiagnostic> };
+
+export function ReportsPage(props: ReportsProps) {
+  const diagnostic = props.reportDiagnostic.diagnostic;
+  if (diagnostic.kind !== 'available' || !canPublishReport(props.review, props.summary, props.reportDiagnostic)) {
+    return <Panel title="Inspection required">
+      <p role="alert">Report diagnosis and ordinary exports are unavailable. Inspect inconsistent or mismatched records before continuing.</p>
+      <ul>{diagnostic.plan.issues.map(issue => <li key={issue}>{issue}</li>)}</ul>
+    </Panel>;
+  }
+  return <AvailableReports {...props} diagnostic={diagnostic}/>;
+}
+
+function AvailableReports({ review, summary, reportDiagnostic, diagnostic }: ReportsProps & { diagnostic: Extract<ReviewIntelligence, {kind: 'available'}> }) {
   const report = buildReport(review, summary);
+  const { impact, plan } = diagnostic;
+  const presentation = reviewDecisionPresentation(diagnostic);
+  const comparison = reportDiagnostic.comparison;
   const [exporting, setExporting] = useState(false);
   const [pdfError, setPdfError] = useState('');
   async function exportPdf() {
@@ -29,6 +49,7 @@ export function ReportsPage({ review, summary }: { review: ReviewData; summary: 
       <p className="muted">{review.summary} | Revision {review.revision}</p>
       <button type="button" className="primary" disabled={exporting} onClick={exportPdf}>{exporting ? 'Preparing PDF...' : 'Export PDF'}</button>
       {pdfError && <p role="alert">{pdfError}</p>}
+      <p className="muted">PDF currently contains the verification summary and history; the diagnostic and recovery comparison are available in this view and JSON.</p>
       <div className="metrics">
         <StatCard value={summary.mandatory} label="Mandatory" icon={Layers3}/>
         <StatCard value={summary.covered} label="Satisfied" icon={CheckCircle2}/>
@@ -65,6 +86,27 @@ export function ReportsPage({ review, summary }: { review: ReviewData; summary: 
       <p><b>Active revalidation:</b> {report.activeRevalidation ? 'Required' : 'Not indicated by current status'}</p>
       <p className="muted">Historical revalidation events do not necessarily indicate an active blocker.</p>
     </Panel>
+    <Panel title="Causal impact and recovery" aside={<span>Revision {diagnostic.revision}</span>}>
+      <h3>{presentation.heading}</h3>
+      <p>{presentation.message}</p>
+      <p>Minimum operations: <b>{plan.minimumActions ?? 'N/A'}</b> | Passing evidence retained in plan: <b>{plan.minimumActions === null ? 'N/A' : plan.retainedEvidence.length}</b></p>
+      {impact.reviewReasons.length > 0 && <ul>{impact.reviewReasons.map(reason => <li key={reason}>{impactReasonLabel(reason)}</li>)}</ul>}
+      {impact.requirements.filter(row => row.reasons.length > 0).map(row => <div className="report-record" key={row.requirementId}>
+        <b>{row.requirementId} v{row.version}</b>
+        <p>Approved version: {row.previousVersion === null ? 'Not recorded' : `v${row.previousVersion}`} | Approved evidence: {row.previousEvidenceId ?? 'Not recorded'} | Current evidence: {row.evidenceId ?? 'None'}</p>
+        <ul>{row.reasons.map(reason => <li key={reason}>{impactReasonLabel(reason)}</li>)}</ul>
+      </div>)}
+      {plan.actions.length > 0 && <><h3>Recommended operations</h3><ol>{plan.actions.map((action, index) => <li key={index}>
+        {action.type === 'obtain-passing-evidence' ? `Obtain current passing evidence for ${action.requirementId} v${action.version}` : 'Request explicit approval'}
+      </li>)}</ol></>}
+      {plan.retainedEvidence.length > 0 && <><h3>Retained evidence</h3><ul>{plan.retainedEvidence.map(row => <li key={row.requirementId}>{row.requirementId} v{row.version} | {row.evidenceId}</li>)}</ul></>}
+      {comparison && <div className="report-record">
+        <h3>Theoretical recovery comparison</h3>
+        <p>Full revalidation: <b>{comparison.fullOperations}</b> | Minimal recovery: <b>{comparison.minimalOperations}</b> | Avoided operations: <b>{comparison.avoidedOperations}</b></p>
+        <p className="muted">Hypothetical baseline: renew every mandatory evidence record and request explicit approval, assuming fixed scope and equal unit operation costs. Not measured time or financial savings.</p>
+      </div>}
+      <p className="muted">Advisory only. Passing evidence is recorded, not independently verified. No operation or approval is executed by this report.</p>
+    </Panel>
     <Panel title="Recorded decisions" aside={<span>{report.decisions.length} events</span>}>
       {!report.decisions.length && <p className="muted">No decision events recorded.</p>}
       {report.decisions.map(({key, label, event, detail}) => <div className="report-record" key={key}>
@@ -75,7 +117,7 @@ export function ReportsPage({ review, summary }: { review: ReviewData; summary: 
           {detail.snapshot.length ? <ul>{detail.snapshot.map((entry, i) => <li key={i}>{entry.requirementId || 'Unknown requirement'} v{entry.version ?? '?'} | {entry.evidenceId || 'Unknown evidence'}</li>)}</ul> : <p className="muted">No evidence snapshot recorded.</p>}
         </> : <p className="muted">Historical detail could not be uniquely matched to a stored record.</p>}
       </div>)}
-      <p className="muted">The existing JSON export includes raw review records, internal identifiers, and coverage. Share it only with authorized recipients. PDF omits structured internal identifiers and evidence URLs, but may include sensitive descriptions and notes.</p>
+      <p className="muted">The JSON export includes raw review records, internal identifiers, coverage and the versioned diagnostic. Share it only with authorized recipients. PDF omits structured internal identifiers and evidence URLs, but may include sensitive descriptions and notes.</p>
     </Panel>
   </div>;
 }
