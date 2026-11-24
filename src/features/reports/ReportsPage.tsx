@@ -1,7 +1,9 @@
 import { AlertTriangle, CheckCircle2, Layers3, History, FileCheck } from 'lucide-react';
 import { Panel, StatCard, StatusBadge } from '../../shared/components/ui';
 import type { ReviewData, ReviewSummary } from '../../shared/types/review';
+import { useState } from 'react';
 import { buildReport } from './report-model.mjs';
+import { downloadReportPdf } from './pdf-report.mjs';
 import './reports.css';
 
 const recordedDate = (value: string) => {
@@ -13,9 +15,20 @@ const recordedDate = (value: string) => {
 
 export function ReportsPage({ review, summary }: { review: ReviewData; summary: ReviewSummary }) {
   const report = buildReport(review, summary);
+  const [exporting, setExporting] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  async function exportPdf() {
+    if (exporting) return;
+    setExporting(true); setPdfError('');
+    try { await downloadReportPdf(review, summary); }
+    catch { setPdfError('PDF generation or download failed. Please try again.'); }
+    finally { setExporting(false); }
+  }
   return <div className="report-page">
     <Panel title={`Verification report - ${review.issueKey}`} aside={<StatusBadge state={summary.status}/> }>
       <p className="muted">{review.summary} | Revision {review.revision}</p>
+      <button type="button" className="primary" disabled={exporting} onClick={exportPdf}>{exporting ? 'Preparing PDF...' : 'Export PDF'}</button>
+      {pdfError && <p role="alert">{pdfError}</p>}
       <div className="metrics">
         <StatCard value={summary.mandatory} label="Mandatory" icon={Layers3}/>
         <StatCard value={summary.covered} label="Satisfied" icon={CheckCircle2}/>
@@ -62,7 +75,7 @@ export function ReportsPage({ review, summary }: { review: ReviewData; summary: 
           {detail.snapshot.length ? <ul>{detail.snapshot.map((entry, i) => <li key={i}>{entry.requirementId || 'Unknown requirement'} v{entry.version ?? '?'} | {entry.evidenceId || 'Unknown evidence'}</li>)}</ul> : <p className="muted">No evidence snapshot recorded.</p>}
         </> : <p className="muted">Historical detail could not be uniquely matched to a stored record.</p>}
       </div>)}
-      <p className="muted">The existing JSON export includes raw review records, internal identifiers, and coverage. Share it only with authorized recipients. PDF export is not available yet.</p>
+      <p className="muted">The existing JSON export includes raw review records, internal identifiers, and coverage. Share it only with authorized recipients. PDF omits structured internal identifiers and evidence URLs, but may include sensitive descriptions and notes.</p>
     </Panel>
   </div>;
 }
