@@ -65,5 +65,5 @@ test('Report consumers: web and JSON use one diagnostic and block unavailable pu
   assert.match(page,/return <AvailableReports/);
   assert.match(page,/const comparison = reportDiagnostic.comparison/);
   assert.match(page,/Not measured time or financial savings/);
-  assert.match(page,/downloadReportPdf\(review, summary\)/);
+  assert.match(page,/downloadReportPdf\(review, summary, reportDiagnostic\)/);
 });

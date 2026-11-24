@@ -40,7 +40,7 @@ function AvailableReports({ review, summary, reportDiagnostic, diagnostic }: Rep
   async function exportPdf() {
     if (exporting) return;
     setExporting(true); setPdfError('');
-    try { await downloadReportPdf(review, summary); }
+    try { await downloadReportPdf(review, summary, reportDiagnostic); }
     catch { setPdfError('PDF generation or download failed. Please try again.'); }
     finally { setExporting(false); }
   }
@@ -49,7 +49,7 @@ function AvailableReports({ review, summary, reportDiagnostic, diagnostic }: Rep
       <p className="muted">{review.summary} | Revision {review.revision}</p>
       <button type="button" className="primary" disabled={exporting} onClick={exportPdf}>{exporting ? 'Preparing PDF...' : 'Export PDF'}</button>
       {pdfError && <p role="alert">{pdfError}</p>}
-      <p className="muted">PDF currently contains the verification summary and history; the diagnostic and recovery comparison are available in this view and JSON.</p>
+      <p className="muted">PDF includes the verification summary, history and shared diagnostic for the loaded revision. The recovery comparison is included when applicable.</p>
       <div className="metrics">
         <StatCard value={summary.mandatory} label="Mandatory" icon={Layers3}/>
         <StatCard value={summary.covered} label="Satisfied" icon={CheckCircle2}/>
