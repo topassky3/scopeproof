@@ -8,6 +8,24 @@ const now = () => new Date().toISOString();
 const uid = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const clean = (v, max = 500) => String(v ?? '').trim().slice(0, max);
 
+// An approval snapshot must be a one-to-one mapping of mandatory requirements.
+function matchesMandatorySnapshot(rows, snapshot) {
+  const mandatory = rows.filter(r => r.mandatory);
+  if (!mandatory.length || !Array.isArray(snapshot) || snapshot.length !== mandatory.length) return false;
+  const byId = new Map(mandatory.map(r => [r.id, r]));
+  if (byId.size !== mandatory.length) return false;
+  const seen = new Set();
+  for (const entry of snapshot) {
+    if (!entry || typeof entry.requirementId !== 'string' || !entry.requirementId ||
+        typeof entry.evidenceId !== 'string' || !entry.evidenceId || seen.has(entry.requirementId)) return false;
+    const row = byId.get(entry.requirementId);
+    if (!row || row.state !== 'satisfied' || row.version !== entry.version ||
+        row.latestEvidence?.id !== entry.evidenceId) return false;
+    seen.add(entry.requirementId);
+  }
+  return seen.size === byId.size;
+}
+
 export function summarize(review) {
   const requirements = review.requirements ?? [];
   const evidence = review.evidence ?? [];
@@ -21,14 +39,12 @@ export function summarize(review) {
   });
   const covered = rows.filter(r => r.mandatory && r.state === 'satisfied').length;
   const latestApproval = review.approvals?.at(-1);
-  const snapshotMatches = latestApproval?.type === 'approved' && latestApproval.snapshot.every(s => {
-    const r = rows.find(r => r.id === s.requirementId);
-    return r && r.version === s.version && r.latestEvidence?.id === s.evidenceId && r.state === 'satisfied';
-  }) && latestApproval.snapshot.length === mandatory.length;
+  const snapshotMatches = latestApproval?.type === 'approved' && covered === mandatory.length &&
+    matchesMandatorySnapshot(rows, latestApproval.snapshot);
   let status = 'pending';
   if (latestApproval?.type === 'rejected') status = 'rejected';
   else if (latestApproval?.type === 'approved') status = snapshotMatches ? 'approved' : 'revalidation';
-  else if (requirements.length) status = covered === mandatory.length ? 'ready' : 'in-review';
+  else if (requirements.length) status = mandatory.length > 0 && covered === mandatory.length ? 'ready' : 'in-review';
   return { rows, mandatory: mandatory.length, covered, status,
     blockers: rows.filter(r => r.mandatory && r.state !== 'satisfied'), latestApproval };
 }
@@ -41,6 +57,9 @@ export function applyCommand(current, command, actor = 'unknown') {
   const review = structuredClone(current);
   const date = now();
   const event = (type, description) => review.events.push({ id: uid(), type, description, actor, createdAt: date });
+  const tracksImpact = ['addRequirement', 'publishVersion', 'addEvidence'].includes(command.type);
+  const wasApproved = tracksImpact && summarize(current).status === 'approved';
+  let revalidationCause;
   if (command.type === 'addRequirement') {
     const title = clean(command.title, 180);
     if (title.length < 5) throw new Error('A requirement title needs at least 5 characters.');
@@ -48,17 +67,17 @@ export function applyCommand(current, command, actor = 'unknown') {
     review.requirements.push({ id, title, mandatory: command.mandatory !== false, version: 1,
       versions: [{version: 1, title, actor, createdAt: date}] });
     event('requirement-created', `${id} v1 created`);
+    revalidationCause = `${id} was added`;
   } else if (command.type === 'publishVersion') {
     const r = review.requirements.find(r => r.id === command.requirementId);
     if (!r) throw new Error('Requirement not found.');
     const title = clean(command.title, 180);
     if (title.length < 5 || title === r.title) throw new Error('Enter a changed requirement title.');
-    const wasApproved = summarize(review).status === 'approved';
     r.version += 1;
     r.title = title;
     r.versions.push({version: r.version, title, actor, createdAt: date});
     event('requirement-updated', `${r.id} updated to v${r.version}; evidence must be reviewed`);
-    if (wasApproved) event('approval-revalidation', `Prior approval requires revalidation because ${r.id} changed`);
+    revalidationCause = `${r.id} changed`;
   } else if (command.type === 'addEvidence') {
     const r = review.requirements.find(r => r.id === command.requirementId);
     if (!r) throw new Error('Requirement not found.');
@@ -71,10 +90,12 @@ export function applyCommand(current, command, actor = 'unknown') {
     review.evidence.push({ id, requirementId: r.id, version: r.version, title, url,
       result: command.result, actor, createdAt: date });
     event('evidence-added', `${id} ${command.result} for ${r.id} v${r.version}`);
+    revalidationCause = `${id} replaced the latest evidence for ${r.id} v${r.version}`;
   } else if (command.type === 'approve') {
     const state = summarize(review);
     if (!state.mandatory || state.blockers.length) throw new Error('APPROVAL_BLOCKED: All mandatory requirements need current passing evidence.');
     const snapshot = state.rows.filter(r => r.mandatory).map(r => ({requirementId:r.id, version:r.version, evidenceId:r.latestEvidence.id}));
+    if (!matchesMandatorySnapshot(state.rows, snapshot)) throw new Error('APPROVAL_BLOCKED: Invalid mandatory evidence snapshot.');
     review.approvals.push({id:uid(), type:'approved', actor, createdAt:date, note:clean(command.note, 500), snapshot});
     event('review-approved', `Review approved with ${snapshot.length} mandatory requirements`);
   } else if (command.type === 'reject') {
@@ -83,6 +104,10 @@ export function applyCommand(current, command, actor = 'unknown') {
     review.approvals.push({id:uid(), type:'rejected', actor, createdAt:date, note, snapshot:[]});
     event('review-rejected', 'Review rejected');
   } else { throw new Error('Unknown command.'); }
+  // Audit the actual valid-to-invalid transition once, not every later change.
+  if (wasApproved && summarize(review).status === 'revalidation') {
+    event('approval-revalidation', `Prior approval requires revalidation because ${revalidationCause}`);
+  }
   review.revision++;
   return review;
 }
