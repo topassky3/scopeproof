@@ -62,3 +62,5 @@ export type ReviewIntelligence =
   | { kind: 'available'; revision: number; impact: ReviewImpact; plan: AvailablePlan };
 /** A caller must branch on kind before presenting the diagnostic as available. */
 export function buildReviewIntelligence(review: unknown): ReviewIntelligence;
+/** Verify an unchanged projection against its exact original data record. */
+export function matchesReviewSource(intelligence: unknown, review: unknown): boolean;

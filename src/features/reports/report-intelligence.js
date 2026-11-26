@@ -1,5 +1,12 @@
 // Versioned, read-only diagnostic for web, PDF and JSON reports.
 // Do not interpret recorded passing evidence as independently verified tests.
+import { summarize } from '../../domain.js';
+import { matchesReviewSource } from '../../shared/review-intelligence.js';
+import { sameRecordValue } from '../../shared/record-equality.js';
+
+/** @type {WeakMap<object, {intelligence: import('../../shared/review-intelligence.js').ReviewIntelligence, report: unknown}>} */
+const origins = new WeakMap();
+
 /** @param {import('../../shared/review-intelligence.js').ReviewIntelligence} intelligence */
 export function buildReportDiagnostic(intelligence) {
   const diagnostic = structuredClone(intelligence);
@@ -16,21 +23,29 @@ export function buildReportDiagnostic(intelligence) {
       avoidedOperations: diagnostic.impact.mandatory + 1 - diagnostic.plan.minimumActions,
       theoretical: true,
     } : null;
-  return { schemaVersion: 1, diagnostic, comparison };
+  const report = { schemaVersion: 1, diagnostic, comparison };
+  if (diagnostic.kind === 'available') {
+    origins.set(report, { intelligence, report: structuredClone(report) });
+  }
+  return report;
 }
 
 /**
- * Guard both consumers against unavailable or mismatched snapshot summaries.
- * The caller supplies all three projections from the same loaded review.
+ * Require exact provenance and complete summary equality before publication.
+ * A deserialized or manually constructed diagnostic is not a live projection.
  * @param {{revision: number}} review
  * @param {{status: string, mandatory: number, covered: number}} summary
  * @param {ReturnType<typeof buildReportDiagnostic>} report
  */
 export function canPublishReport(review, summary, report) {
-  const d = report.diagnostic;
-  return d.kind === 'available' && d.revision === review.revision &&
-    d.impact.status === summary.status && d.impact.mandatory === summary.mandatory &&
-    d.impact.covered === summary.covered;
+  try {
+    if (!report || report.diagnostic.kind !== 'available') return false;
+    const origin = origins.get(report);
+    return Boolean(origin && matchesReviewSource(origin.intelligence, review) &&
+      sameRecordValue(origin.report, report) &&
+      sameRecordValue(origin.intelligence, report.diagnostic) &&
+      sameRecordValue(summarize(review), summary));
+  } catch { return false; }
 }
 
 /** Preserve the existing JSON fields and add a detached, versioned diagnostic.
