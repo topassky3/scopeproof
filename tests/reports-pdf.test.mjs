@@ -19,7 +19,7 @@ const fixture = () => {
   return {r,stale,ready};
 };
 const doc = r => buildPdfDefinition(r,summarize(r),generated);
-const body = r => doc(r).content.map(x=>x.text).join('\n');
+const body = r => doc(r).content.flatMap(x=>(x.stack??[x]).map(node=>node.text)).join('\n');
 test('PDF projection preserves both snapshots and distinguishes outdated evidence',()=>{
   const {r}=fixture(); const before=structuredClone(r); const s=body(r);
   for(const value of ['Revision 6','Status: Approved','Mandatory coverage: 100%','EV-101 | RQ-01 v1','Applicability: outdated','EV-102 | RQ-01 v2','Applicability: current','RQ-01 v1 | EV-101','RQ-01 v2 | EV-102','Recorded revalidations: 1','expiración']) assert.ok(s.includes(value),value);

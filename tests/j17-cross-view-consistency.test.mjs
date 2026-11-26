@@ -71,7 +71,7 @@ for(const [name,make,status,mandatory,covered,minimum,blocked,retained,snapshot,
     }
     const p=buildReportDiagnostic(i), json=buildJsonReport(r,summary,p,at);
     assert.deepEqual(json.reportIntelligence.diagnostic,overview.intelligence);
-    const pdf=buildPdfDefinition(r,summary,at,p).content.map(row=>row.text);
+    const pdf=buildPdfDefinition(r,summary,at,p).content.flatMap(row=>(row.stack??[row]).map(node=>node.text));
     assert.ok(pdf.includes(heading));
     assert.ok(pdf.includes(`Minimum operations: ${minimum??'N/A'} | Passing evidence retained in plan: ${minimum===null?'N/A':retained.length}`));
     assert.deepEqual(r,before);

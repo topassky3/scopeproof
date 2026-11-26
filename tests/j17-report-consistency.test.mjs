@@ -16,7 +16,7 @@ const optional = r => cmd(r,'addRequirement',{title:'Optional check',mandatory:f
 const recovered = () => evidence(exampleReview(),'RQ-01');
 const approved = () => cmd(recovered(),'approve');
 const projection = r => buildReportDiagnostic(buildReviewIntelligence(r));
-const lines = definition => definition.content.map(row=>row.text);
+const lines = definition => definition.content.flatMap(row=>(row.stack??[row]).map(node=>node.text));
 const diagnosticLines = definition => {
   const body = lines(definition);
   const start = body.indexOf('06 / Causal impact and recovery');

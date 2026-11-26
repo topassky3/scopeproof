@@ -11,12 +11,12 @@ const command = (r,type,props={}) => applyCommand(r,{type,expectedRevision:r.rev
 const pass = r => command(r,'addEvidence',{requirementId:'RQ-01',title:'Passing test',result:'passed'});
 const report = r => buildReportDiagnostic(buildReviewIntelligence(r));
 const doc = (r,p=report(r)) => buildPdfDefinition(r,summarize(r),at,p);
-const body = r => doc(r).content.map(row=>row.text).join('\n');
+const body = r => doc(r).content.flatMap(row=>(row.stack??[row]).map(node=>node.text)).join('\n');
 
 test('PDF intelligence: matches JSON diagnosis, causes, actions and retained evidence without mutation',()=>{
   const r=exampleReview(), p=report(r), s=summarize(r), before=structuredClone({r,p,s});
   const j=buildJsonReport(r,s,p,at).reportIntelligence, d=j.diagnostic;
-  const text=buildPdfDefinition(r,s,at,p).content.map(row=>row.text).join('\n');
+  const text=buildPdfDefinition(r,s,at,p).content.flatMap(row=>(row.stack??[row]).map(node=>node.text)).join('\n');
   for(const value of [`Diagnostic schema: v${j.schemaVersion} | Revision ${d.revision}`,reviewDecisionPresentation(d).heading,reviewDecisionPresentation(d).message,
     `Minimum operations: ${d.plan.minimumActions}`,`Full revalidation: ${j.comparison.fullOperations} | Minimal recovery: ${j.comparison.minimalOperations} | Avoided operations: ${j.comparison.avoidedOperations}`,
     ...d.impact.reviewReasons.map(impactReasonLabel),...d.impact.requirements.flatMap(row=>row.reasons.map(impactReasonLabel)),
@@ -63,7 +63,7 @@ test('PDF intelligence: diagnostic does not expose structured actor ids, Jira id
 test('PDF intelligence: large valid scope retains all rows in a deterministic document definition',()=>{
   let r=blankReview({id:'1',key:'T-1',summary:'Large scope',projectId:'2',projectKey:'T'});
   for(let i=0;i<60;i++) r=command(r,'addRequirement',{title:`Mandatory requirement ${i+1}`});
-  const d=doc(r), text=d.content.map(row=>row.text).join('\n');
+  const d=doc(r), text=d.content.flatMap(row=>(row.stack??[row]).map(node=>node.text)).join('\n');
   assert.match(text,/Minimum operations: 61/); assert.match(text,/60\. Obtain current passing evidence for RQ-60 v1/);
   assert.match(text,/61\. Request explicit approval/); assert.equal(d.pageSize,'A4');
   assert.deepEqual(d.content,doc(r).content);

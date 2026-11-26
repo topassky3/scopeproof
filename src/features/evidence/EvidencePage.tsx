@@ -43,7 +43,7 @@ function RecordDate({ value }: { value?: string }) {
 
 export function EvidencePage(props: EvidencePageProps) {
   if (props.intelligence.kind === 'unavailable') return <Panel title="Inspection required"><p role="alert">Evidence coverage and recovery advice are unavailable. Inspect inconsistent records before continuing.</p><ul>{props.intelligence.plan.issues.map(issue => <li key={issue}>{issue}</li>)}</ul></Panel>;
-  return <AvailableEvidence {...props} intelligence={props.intelligence}/>;
+  return <AvailableEvidence key={JSON.stringify([props.review.issueKey, props.review.revision])} {...props} intelligence={props.intelligence}/>;
 }
 
 function AvailableEvidence({ review, summary, openEditor, actorNames = {}, intelligence }: Omit<EvidencePageProps, 'intelligence'> & { intelligence: Extract<ReviewIntelligence, { kind: 'available' }> }) {
@@ -60,7 +60,7 @@ function AvailableEvidence({ review, summary, openEditor, actorNames = {}, intel
   const selectedRequirement = review.requirements.find(row => row.id === selected?.requirementId);
   const targetRequirementId = review.requirements.some(row => row.id === requirementId)
     ? requirementId
-    : (review.requirements[0]?.id ?? '');
+    : '';
   const needsReview = summary.blockers.length > 0 || summary.mandatory === 0 || summary.status === 'revalidation' || summary.status === 'rejected';
   const presentation = reviewDecisionPresentation(intelligence);
   const trace = selected ? evidenceTrace(intelligence, selected) : null;
@@ -168,11 +168,12 @@ function AvailableEvidence({ review, summary, openEditor, actorNames = {}, intel
         <p className="ev-context">Add a new test result to the latest version of a requirement. Historical records remain unchanged.</p>
         <label className="ev-select ev-target">Target requirement
           <select value={targetRequirementId} onChange={event => setRequirementId(event.target.value)}>
+            <option value="">Select a requirement</option>
             {review.requirements.map(requirement =>
               <option key={requirement.id} value={requirement.id}>{requirement.id} · v{requirement.version} — {requirement.title}</option>)}
           </select></label>
         <button type="button" className="primary ev-add-button"
-          disabled={!targetRequirementId} onClick={() => openEditor('evidence', targetRequirementId)}>
+          disabled={!targetRequirementId} onClick={() => { openEditor('evidence', targetRequirementId); setRequirementId(''); }}>
           <Plus size={16} aria-hidden="true" /> Add evidence</button>
         {summary.status === 'revalidation' && <p className="ev-revalidation"><History size={15} aria-hidden="true" /> A previous approval requires revalidation. New evidence will not automatically approve it.</p>}
       </Panel>

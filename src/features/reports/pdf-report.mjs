@@ -1,5 +1,6 @@
 // A local, read-only export. No network resources, raw Jira account IDs or HTML.
 import { buildReport } from './report-model.mjs';
+import { groupPdfContent } from './pdf-layout.mjs';
 import { buildReportDiagnostic, canPublishReport } from './report-intelligence.js';
 import { buildReviewIntelligence } from '../../shared/review-intelligence.js';
 import { impactReasonLabel } from '../overview/overview-intelligence.js';
@@ -12,7 +13,7 @@ const date = value => {
 };
 const labels = {approved:'Approved', revalidation:'Revalidation required', ready:'Ready to approve', 'in-review':'In review', pending:'Pending', rejected:'Rejected'};
 const section = value => ({ text: value, style: 'section' });
-const line = value => ({ text: value, margin: [0, 2, 0, 3] });
+const line = value => ({ text: value, margin: [0, 1, 0, 2] });
 const boldLine = value => ({ ...line(value), bold: true });
 const empty = value => ({ ...line(value), color: '#526579' });
 
@@ -78,10 +79,10 @@ export function buildPdfDefinition(review, summary, generatedAt, reportDiagnosti
   return {
     pageSize:'A4', pageMargins:[44,44,44,52],
     info:{title:`ScopeProof - ${review.issueKey} - revision ${review.revision}`, author:'ScopeProof'},
-    defaultStyle:{font:'Roboto',fontSize:10,color:'#233345',lineHeight:1.15},
-    styles:{brand:{fontSize:26,bold:true,color:'#174b76'},subtitle:{fontSize:10,bold:true,color:'#526579',margin:[0,0,0,14]},section:{fontSize:14,bold:true,color:'#174b76',margin:[0,14,0,5]}},
+    defaultStyle:{font:'Roboto',fontSize:10,color:'#233345',lineHeight:1.1},
+    styles:{brand:{fontSize:26,bold:true,color:'#174b76'},subtitle:{fontSize:10,bold:true,color:'#526579',margin:[0,0,0,14]},section:{fontSize:14,bold:true,color:'#174b76',margin:[0,10,0,4]}},
     footer:(page,total)=>({text:`ScopeProof | ${review.issueKey} | Revision ${review.revision} | ${page} / ${total}`,alignment:'center',fontSize:9,color:'#526579',margin:[0,15,0,0]}),
-    content,
+    content:groupPdfContent(content),
   };
 }
 

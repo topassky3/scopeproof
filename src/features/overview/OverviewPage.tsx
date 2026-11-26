@@ -78,7 +78,7 @@ export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue,
         <p className="ov-impact-note">Project totals use saved review statuses. Planning integrity is checked only for the selected review.</p>
         {metrics.revalidation > 0 && <button type="button" className="ov-attention" onClick={() => { setFilter('revalidation'); setPage(1); }}>
           <span className="ov-attention-icon"><AlertTriangle size={22}/></span>
-          <span><strong>{metrics.revalidation} review{metrics.revalidation === 1 ? '' : 's'} need revalidation</strong><small>An earlier approval needs a new decision, even when fresh evidence passes.</small></span>
+          <span><strong>{metrics.revalidation} {metrics.revalidation === 1 ? 'review needs' : 'reviews need'} revalidation</strong><small>An earlier approval needs a new decision, even when fresh evidence passes.</small></span>
           <ArrowRight size={19} aria-hidden="true"/>
         </button>}
         <Panel title="Issue reviews" className="ov-table-panel" aside={<span>{metrics.total} tracked</span>}>
@@ -150,7 +150,7 @@ export function OverviewPage({ review, summary, list, onNavigate, onSelectIssue,
               {intelligence.plan.actions.length > 0 ? <ol className="ov-impact-note">{intelligence.plan.actions.map(action => action.type === 'obtain-passing-evidence'
                 ? <li key={action.requirementId}>Obtain passing evidence for {action.requirementId} v{action.version}.</li>
                 : <li key="approval">Request explicit approval.</li>)}</ol> : <p className="ov-impact-note">No additional action required.</p>}
-              <details className="ov-impact-note"><summary>Retained evidence ({intelligence.plan.retainedEvidence.length})</summary><ul>{intelligence.plan.retainedEvidence.map(row => <li key={row.requirementId}>{row.requirementId} v{row.version} · {row.evidenceId}</li>)}</ul></details>
+              <div className="ov-impact-note"><strong>Retained evidence ({intelligence.plan.retainedEvidence.length})</strong>{intelligence.plan.retainedEvidence.length ? <ul>{intelligence.plan.retainedEvidence.map(row => <li key={row.requirementId}>{row.requirementId} v{row.version} · {row.evidenceId}</li>)}</ul> : <p>None.</p>}</div>
               <p className="ov-impact-note">Advisory plan for this revision. Evidence and decisions must be recorded explicitly.</p>
             </>}
             {historical && <p className="ov-impact-note">Historical outdated evidence: {historical.outdatedEvidence}. Older evidence is retained for audit, not current coverage.</p>}

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, AlertTriangle, CheckCircle2, ArrowRight, X, Download, Save, Inbox } from 'lucide-react';
 import { applyCommand, exampleReview } from '../domain.js';
 import { readReviewForUse } from '../review-read.js';
+import { captureEditorContext, editorContextMatches } from './editor-context.mjs';
 import { AppShell, PageHeader } from '../shared/layout/AppShell';
 import type { PageId } from '../shared/config/navigation';
 import { OverviewPage } from '../features/overview/OverviewPage';
@@ -49,6 +50,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [modal,setModal]=useState<'requirement'|'version'|'evidence'|'reject'|null>(null);
   const [target,setTarget]=useState('');
   const [editorRevision,setEditorRevision]=useState<number|null>(null);
+  const [editorContext,setEditorContext]=useState<ReturnType<typeof captureEditorContext>>(null);
   const [title,setTitle]=useState('');
   const [link,setLink]=useState('');
   const [result,setResult]=useState('passed');
@@ -157,11 +159,15 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   }
   function open(mode:'requirement'|'version'|'evidence'|'reject',id=''){
     if (!review || decisionInspectionRequired) {setError('REVIEW_INSPECTION_REQUIRED');return;}
+    if(busy)return;
+    const context=captureEditorContext(review,mode,id);
+    if(!context){setError('Select a valid requirement before opening this form.');return;}
+    setEditorContext(context);
     setModal(mode);setEditorRevision(review?.revision ?? null);setTarget(id);setTitle('');setLink('');setNote('');setResult('passed');setMandatory(true);setError('');
   }
-  async function submit(e:React.FormEvent){e.preventDefault();if(!review)return;
-    if (preview && editorRevision !== review.revision) {
-      setError('CONFLICT: This form was opened before another tab changed the review. Close it and reopen to verify the latest data.');
+  async function submit(e:React.FormEvent){e.preventDefault();if(!review || busy)return;
+    if (editorRevision !== review.revision || !editorContext || editorContext.mode !== modal || !editorContextMatches(review,editorContext) || (editorContext.target?.id ?? '') !== target) {
+      setError('CONFLICT: This form was opened before another tab changed the review, or its target no longer matches. Close it and reopen to verify the latest data.');
       return;
     }
     let ok=false;
@@ -208,7 +214,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
       </>}
     </AppShell>
     {modal&&review&&<div className="overlay" role="presentation"><form className="modal" onSubmit={submit} aria-label="Scopeproof editor"><div className="modal-head"><h2>{modal==='requirement'?'Add requirement':modal==='version'?'Publish new version':modal==='evidence'?'Add evidence':'Reject review'}</h2><button type="button" className="icon-btn" aria-label="Close" onClick={()=>setModal(null)}><X size={20}/></button></div>
-      {target&&<p className="muted">Target: {target}{modal==='evidence'&&review?` v${review.requirements.find((r:any)=>r.id===target)?.version??''}`:''}</p>}
+      {editorContext && <div className="panel" style={{padding:12,marginBottom:12,overflowWrap:'anywhere'}}><p className="muted">Issue: {editorContext.issueKey} · Revision {editorContext.revision}</p>{editorContext.target && <><strong>Target: {editorContext.target.id} v{editorContext.target.version}</strong><p>{editorContext.target.title}</p></>}</div>}
       {modal!=='reject'&&<label className="field">{modal==='evidence'?'Evidence title':'Requirement description'}<input autoFocus required minLength={modal==='evidence'?3:5} maxLength={180} value={title} onChange={e=>setTitle(e.target.value)} placeholder={modal==='version'?'Describe the new requirement...':'Enter a clear, verifiable description'}/></label>}
       {modal==='requirement'&&<label className="check"><input type="checkbox" checked={mandatory} onChange={e=>setMandatory(e.target.checked)}/>Mandatory requirement</label>}
       {modal==='evidence'&&<><label className="field">Test result<select value={result} onChange={e=>setResult(e.target.value)}><option value="passed">Passed</option><option value="failed">Failed</option></select></label><label className="field">Evidence HTTPS URL (optional)<input type="url" value={link} onChange={e=>setLink(e.target.value)} placeholder="https://..."/></label></>}

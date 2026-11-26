@@ -27,9 +27,9 @@ export function ReviewPlanPanel({ intelligence, historicalOutdatedEvidence }: {
             <ul>{action.reasons.map(reason => <li key={reason}>{impactReasonLabel(reason)}</li>)}</ul></li>
           : <li key="approval">Request explicit approval.</li>)}</ol>
           : <p>No additional action required.</p>}
-        <details><summary>Retained evidence ({plan.retainedEvidence.length})</summary>
-          <ul>{plan.retainedEvidence.map(row => <li key={row.requirementId}>{row.requirementId} v{row.version} · {row.evidenceId}</li>)}</ul>
-        </details>
+        <div><strong>Retained evidence ({plan.retainedEvidence.length})</strong>
+          {plan.retainedEvidence.length ? <ul>{plan.retainedEvidence.map(row => <li key={row.requirementId}>{row.requirementId} v{row.version} · {row.evidenceId}</li>)}</ul> : <p>None.</p>}
+        </div>
         <p className="muted">Advisory only. Record actual evidence and decisions explicitly.</p>
       </>}
       {historicalOutdatedEvidence !== null && <p className="muted">Historical outdated evidence: {historicalOutdatedEvidence}. Retained for audit, not current coverage.</p>}
