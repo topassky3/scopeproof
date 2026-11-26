@@ -1,16 +1,15 @@
 import ResolverModule from '@forge/resolver';
 import api, { route } from '@forge/api';
-import { kvs } from '@forge/kvs';
-import { blankReview, applyCommand } from './domain.js';
-import { requireReviewForUse, storedReviewRow } from './review-read.js';
+import { kvs, Filter, FilterConditions } from '@forge/kvs';
+import { createCesAdapter } from './ces-adapter.js';
+import { createReviewStore } from './review-store.js';
 
 // Forge's ESM bundler can expose the CommonJS resolver as a namespace object.
 // Unwrap its default export before constructing it (Node/Forge interop).
 const Resolver = ResolverModule.default ?? ResolverModule;
 const resolver = new Resolver();
 const validKey = (key) => /^[A-Z][A-Z0-9_]*-[1-9][0-9]{0,8}$/.test(key);
-const reviewKey = (id) => `review:${id}`;
-const indexKey = (projectId) => `project:${projectId}:issues`;
+const store = createReviewStore(createCesAdapter({kvs, Filter, FilterConditions}));
 
 async function jiraIssue(issueKey) {
   const key = String(issueKey ?? '').trim().toUpperCase();
@@ -25,9 +24,7 @@ async function jiraIssue(issueKey) {
 
 resolver.define('getReview', async ({payload}) => {
   const issue = await jiraIssue(payload.issueKey);
-  const data = await kvs.get(reviewKey(issue.id)) ?? blankReview(issue);
-  const derived = requireReviewForUse(data, issue);
-  return {review:data, derived};
+  return store.getReview(issue);
 });
 
 resolver.define('command', async ({payload,context}) => {
@@ -35,15 +32,7 @@ resolver.define('command', async ({payload,context}) => {
   const issue = await jiraIssue(payload.issueKey);
   const perms = await api.asUser().requestJira(route`/rest/api/3/mypermissions?issueKey=${issue.key}&permissions=EDIT_ISSUES`);
   if (!perms.ok || !(await perms.json()).permissions?.EDIT_ISSUES?.havePermission) throw new Error('EDIT_PERMISSION_REQUIRED');
-  const original = await kvs.get(reviewKey(issue.id)) ?? blankReview(issue);
-  requireReviewForUse(original, issue);
-  const updated = applyCommand(original, payload.command, context.accountId);
-  const derived = requireReviewForUse(updated, issue);
-  // MVP uses sequential optimistic revision checking; true atomic CAS is pending.
-  await kvs.set(reviewKey(issue.id), updated);
-  const index = await kvs.get(indexKey(issue.projectId)) ?? [];
-  if (!index.includes(issue.key)) await kvs.set(indexKey(issue.projectId), [...index, issue.key].slice(0, 200));
-  return {review:updated, derived};
+  return store.command(issue, payload.command, context.accountId);
 });
 
 resolver.define('listReviews', async ({payload}) => {
@@ -52,15 +41,18 @@ resolver.define('listReviews', async ({payload}) => {
   const res = await api.asUser().requestJira(route`/rest/api/3/project/${projectKey}`);
   if (!res.ok) throw new Error('PROJECT_NOT_ACCESSIBLE');
   const project = await res.json();
-  const index = await kvs.get(indexKey(String(project.id))) ?? [];
+  const index = await store.candidateKeys(String(project.id));
   const rows = [];
   for (const issueKey of index.slice(0, 40)) {
     try {
       const issue = await jiraIssue(issueKey);
       if (String(issue.projectId) !== String(project.id)) continue;
-      const r = await kvs.get(reviewKey(issue.id));
-      if (r !== undefined && r !== null) rows.push(storedReviewRow(r, issue));
-    } catch { /* no disclosure of inaccessible issues */ }
+      const row = await store.row(issue);
+      if (row) rows.push(row);
+    } catch (error) {
+      if (error?.message !== 'ISSUE_NOT_ACCESSIBLE') throw error;
+      // Do not disclose inaccessible issues or silently hide storage failures.
+    }
   }
   return rows;
 });

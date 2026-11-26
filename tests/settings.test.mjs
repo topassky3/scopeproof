@@ -48,7 +48,9 @@ test('Settings evidence policy reflects version-specific latest evidence and opt
 test('Settings revalidation and concurrency wording matches current behavior without promising atomic writes', () => {
   assert.match(page, /Approval snapshot validation.*Active/);
   assert.match(page, /Fresh explicit decision required/);
-  assert.match(page, /Atomic concurrent updates are not guaranteed/);
+  assert.match(page, /Atomic concurrent updates are not guaranteed in local preview/);
+  assert.match(page, /Forge review writes use conditional storage operations/);
+  assert.match(page, /deployment validation is pending/);
   let r = cmd(blank(),'addRequirement',{title:'Required test'});
   const fields = {requirementId:'RQ-01',title:'Passing test',result:'passed'};
   r = cmd(r,'addEvidence',fields);
@@ -77,8 +79,8 @@ test('Settings documents manifest scopes and acting-user edit checks without cla
 
 test('Settings stays read-only, distinguishes preview from Forge and describes both export formats', () => {
   assert.match(app,/active === 'Settings' && <SettingsPage preview=\{preview\}/);
-  assert.match(page,/preview \? 'Local preview' : 'Forge KVS \+ Jira'/);
-  assert.match(page,/preview \? 'Browser local storage' : 'Forge KVS'/);
+  assert.match(page,/preview \? 'Local preview' : 'Forge CES \+ legacy KVS \+ Jira'/);
+  assert.match(page,/preview \? 'Browser local storage' : 'Forge CES \(legacy KVS read-only\)'/);
   assert.match(page,/Jira permission checks are not active in this preview/);
   assert.match(page,/Read-only/);
   assert.doesNotMatch(page,/<(?:button|input|select|textarea|form)\b|\bonClick\s*=|\b(?:localStorage|sessionStorage)\./);

@@ -39,7 +39,7 @@ export function SettingsPage({ preview }: { preview: boolean }) {
         ['Revision checking', 'Optimistic revision check'],
       ]}/>
       <p>Approval validity is evaluated against requirement versions and their latest evidence in the stored approval snapshot, with mandatory coverage required for approval.</p>
-      <p className="muted">Historical revalidation events do not necessarily mean an active blocker. Atomic concurrent updates are not guaranteed.</p>
+      <p className="muted">Historical revalidation events do not necessarily mean an active blocker. {preview ? 'Atomic concurrent updates are not guaranteed in local preview.' : 'Forge review writes use conditional storage operations; deployment validation is pending.'}</p>
     </Panel>
     <Panel title="Security and permissions">
       {preview ? <>
@@ -63,8 +63,8 @@ export function SettingsPage({ preview }: { preview: boolean }) {
     </Panel>
     <Panel title="Data management">
       <PolicyRows rows={[
-        ['Data source', preview ? 'Local preview' : 'Forge KVS + Jira'],
-        ['Review storage', preview ? 'Browser local storage' : 'Forge KVS'],
+        ['Data source', preview ? 'Local preview' : 'Forge CES + legacy KVS + Jira'],
+        ['Review storage', preview ? 'Browser local storage' : 'Forge CES (legacy KVS read-only)'],
         ['Export formats', 'JSON / PDF'],
       ]}/>
       <p>Exports reflect the loaded review. JSON includes raw records and internal identifiers. PDF omits structured internal identifiers and evidence URLs, but free text may contain sensitive information.</p>
@@ -72,7 +72,7 @@ export function SettingsPage({ preview }: { preview: boolean }) {
     </Panel>
     <Panel title="Current limitations">
       <p>Separate role management and notifications are not implemented. This page does not change policies, permissions or stored reviews.</p>
-      <p className="muted">Revision checks are not an atomic concurrency guarantee.</p>
+      <p className="muted">The project list is limited to 40 candidate issues and may lag behind direct reads. An ambiguous write outcome requires reload before retrying.</p>
     </Panel>
   </div>;
 }

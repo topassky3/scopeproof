@@ -30,3 +30,23 @@ app:
     name: nodejs24.x
     memoryMB: 256
     architecture: arm64
+  storage:
+    entities:
+      - name: scopeproof-review
+        attributes:
+          projectId:
+            type: string
+          issueKey:
+            type: string
+          revision:
+            type: string
+          token:
+            type: string
+          review:
+            type: any
+        indexes:
+          - name: by-project-issue
+            partition:
+              - projectId
+            range:
+              - issueKey

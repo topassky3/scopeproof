@@ -73,14 +73,20 @@ test('Boundary wiring: App gates raw review before render helpers and keeps Djan
   assert.match(app,/modal&&review&&<div/);
   assert.match(app,/readReviewForUse\(stored\).ok/);
 });
-test('Boundary wiring: resolver authorizes and validates before publishing reads or writing KVS', async()=>{
+test('Boundary wiring: resolver authorizes before storage and validates before conditional writes', async()=>{
   const {readFileSync}=await import('node:fs');
   const source=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+  const store=readFileSync(new URL('../src/review-store.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/\bsummarize\(/);
-  assert.match(source,/const derived = requireReviewForUse\(data, issue\);\s*return \{review:data, derived\}/);
+  assert.match(source,/const issue = await jiraIssue\(payload.issueKey\);\s*return store.getReview\(issue\)/);
   const command=source.slice(source.indexOf("resolver.define('command'"),source.indexOf("resolver.define('listReviews'"));
-  const order=['EDIT_PERMISSION_REQUIRED','requireReviewForUse(original, issue)','applyCommand(original','requireReviewForUse(updated, issue)','await kvs.set'];
+  assert.ok(command.indexOf('EDIT_PERMISSION_REQUIRED') < command.indexOf('return store.command'));
+  assert.match(store,/requireReviewForUse\(review, issue\)/);
+  assert.match(store,/requireReviewForUse\(record.review, issue\)/);
+  const order=['const old = await load(issue)','applyCommand(old.review','requireReviewForUse(value.review, issue)','await io.replaceIfRevision'];
   let prior=-1;
-  for(const needle of order){const position=command.indexOf(needle);assert.ok(position>prior,needle);prior=position;}
-  assert.match(source,/rows.push\(storedReviewRow\(r, issue\)\)/);
+  for(const needle of order){const position=store.indexOf(needle);assert.ok(position>prior,needle);prior=position;}
+  assert.match(store,/storedReviewRow\(loaded.review, issue\)/);
+  assert.match(source,/const row = await store.row\(issue\)/);
+  assert.doesNotMatch(source,/kvs.set\(/);
 });
