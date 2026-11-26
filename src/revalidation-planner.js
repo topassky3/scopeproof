@@ -3,13 +3,23 @@ import { analyzeReviewImpact } from './change-impact.js';
 
 import { inspectReviewRecords } from './review-integrity.js';
 
-export function planRevalidation(review) {
+export function analyzeAndPlanReview(review) {
   const base = { revision: Number.isSafeInteger(review?.revision) ? review.revision : null,
     status: null, disposition: 'inspect-records', minimumActions: null, actions: [],
     retainedEvidence: [], issues: [] };
   const issues = inspectReviewRecords(review);
-  if (issues.length) return { ...base, issues };
+  if (issues.length) return { impact: null, plan: { ...base, issues } };
   const impact = analyzeReviewImpact(review);
+  const plan = planFromImpact(review, base, impact);
+  return { impact: plan.disposition === 'inspect-records' ? null : impact, plan };
+}
+
+export function planRevalidation(review) {
+  return analyzeAndPlanReview(review).plan;
+}
+
+// Only the validated path above can supply an impact to this private helper.
+function planFromImpact(review, base, impact) {
   const state = { ...base, status: impact.status };
   // A rejection is a human decision, not a coverage problem to bypass.
   if (impact.status === 'rejected') return { ...state, disposition: 'human-review' };

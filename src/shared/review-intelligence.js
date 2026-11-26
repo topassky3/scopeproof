@@ -1,7 +1,6 @@
 // Shared read-only projection for the Forge review and its exports.
 // Keep the domain, diagnosis and planning rules in their existing modules.
-import { analyzeReviewImpact } from '../change-impact.js';
-import { planRevalidation } from '../revalidation-planner.js';
+import { analyzeAndPlanReview } from '../revalidation-planner.js';
 import { sameRecordValue } from './record-equality.js';
 
 // Private provenance is never serialized into the JSON or PDF contract.
@@ -20,14 +19,14 @@ export function matchesReviewSource(intelligence, review) {
 }
 
 export function buildReviewIntelligence(review) {
-  const plan = planRevalidation(review);
+  const { impact, plan } = analyzeAndPlanReview(review);
   // A domain status by itself is not a trustworthy presentation when the
   // planner has rejected the records or cannot safely allocate evidence IDs.
   if (plan.disposition === 'inspect-records') {
     return { kind: 'unavailable', revision: plan.revision, impact: null, plan };
   }
   const projection = { kind: 'available', revision: plan.revision,
-    impact: analyzeReviewImpact(review), plan };
+    impact, plan };
   try {
     origins.set(projection, {review: structuredClone(review), projection: structuredClone(projection)});
   } catch { /* Unsupported data has no publishable provenance. */ }

@@ -32,10 +32,35 @@ export function summarize(review) {
   const requirements = review.requirements ?? [];
   const evidence = review.evidence ?? [];
   const mandatory = requirements.filter(r => r.mandatory);
+  // Index only ordinary typed records. Keep the old low-level behavior for
+  // malformed/legacy inputs; trusted callers still perform integrity checks.
+  const canIndex = Array.isArray(requirements) && Array.isArray(evidence) &&
+    requirements.every(r => r && typeof r.id === 'string' && Number.isSafeInteger(r.version)) &&
+    evidence.every(e => e && typeof e.requirementId === 'string' && Number.isSafeInteger(e.version));
+  const byRequirement = new Map();
+  if (canIndex) {
+    evidence.forEach(e => {
+      let entry = byRequirement.get(e.requirementId);
+      if (!entry) {
+        entry = { latestByVersion: new Map(), oldestVersion: e.version };
+        byRequirement.set(e.requirementId, entry);
+      }
+      // Insertion order, not timestamps, determines the latest evidence.
+      entry.latestByVersion.set(e.version, e);
+      entry.oldestVersion = Math.min(entry.oldestVersion, e.version);
+    });
+  }
   const rows = requirements.map(r => {
-    const matching = evidence.filter(e => e.requirementId === r.id && e.version === r.version).reverse();
-    const latest = matching[0];
-    const stale = evidence.some(e => e.requirementId === r.id && e.version < r.version);
+    let latest, stale;
+    if (canIndex) {
+      const entry = byRequirement.get(r.id);
+      latest = entry?.latestByVersion.get(r.version);
+      stale = Boolean(entry && entry.oldestVersion < r.version);
+    } else {
+      const matching = evidence.filter(e => e.requirementId === r.id && e.version === r.version).reverse();
+      latest = matching[0];
+      stale = evidence.some(e => e.requirementId === r.id && e.version < r.version);
+    }
     return {...r, latestEvidence: latest ?? null,
       state: latest ? (latest.result === 'passed' ? 'satisfied' : 'failed') : stale ? 'stale' : 'missing'};
   });
