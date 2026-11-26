@@ -58,7 +58,13 @@ test('H04: duplicate snapshot cannot approve a review with an uncovered mandator
   const corrupted = structuredClone(r);
   const snapshot = corrupted.approvals.at(-1).snapshot;
   snapshot[1] = structuredClone(snapshot[0]);
-  const updated = evidence(corrupted, 'RQ-02', 'failed');
+  // Mutations of corrupt stored records now fail closed. Preserve the original
+  // read-only verification case by constructing the corrupted state explicitly.
+  const before = structuredClone(corrupted);
+  assert.throws(() => evidence(corrupted, 'RQ-02', 'failed'), /REVIEW_INSPECTION_REQUIRED/);
+  assert.deepEqual(corrupted, before);
+  const updated = evidence(r, 'RQ-02', 'failed');
+  updated.approvals.at(-1).snapshot = structuredClone(snapshot);
   assert.equal(summarize(updated).covered, 1);
   assert.equal(summarize(updated).blockers.length, 1);
   assert.equal(summarize(updated).status, 'revalidation');

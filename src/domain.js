@@ -1,4 +1,6 @@
 // Shared, deterministic business rules. No Forge dependencies: independently testable.
+import { inspectReviewRecords, validEvidenceUrl } from './review-integrity.js';
+
 export function blankReview(issue) {
   return { issueId: String(issue.id), issueKey: issue.key, summary: issue.summary,
     projectId: String(issue.projectId), projectKey: issue.projectKey,
@@ -51,9 +53,12 @@ export function summarize(review) {
 
 export function applyCommand(current, command, actor = 'unknown') {
   if (!current || !command || typeof command !== 'object') throw new Error('INVALID_REQUEST');
-  if (!Number.isInteger(command.expectedRevision) || command.expectedRevision !== current.revision) {
+  if (!Number.isSafeInteger(command.expectedRevision) || command.expectedRevision !== current.revision) {
     throw new Error('CONFLICT: Review was updated. Reload before saving.');
   }
+  const issues = inspectReviewRecords(current);
+  if (issues.length) throw new Error(`REVIEW_INSPECTION_REQUIRED: ${issues.join(', ')}`);
+  if (current.revision === Number.MAX_SAFE_INTEGER) throw new Error('REVISION_CAPACITY_EXCEEDED');
   const review = structuredClone(current);
   const date = now();
   const event = (type, description) => review.events.push({ id: uid(), type, description, actor, createdAt: date });
@@ -64,6 +69,7 @@ export function applyCommand(current, command, actor = 'unknown') {
     const title = clean(command.title, 180);
     if (title.length < 5) throw new Error('A requirement title needs at least 5 characters.');
     const id = `RQ-${String(review.requirements.length + 1).padStart(2, '0')}`;
+    if (review.requirements.some(r => r.id === id)) throw new Error('REQUIREMENT_ID_ALLOCATION_COLLISION');
     review.requirements.push({ id, title, mandatory: command.mandatory !== false, version: 1,
       versions: [{version: 1, title, actor, createdAt: date}] });
     event('requirement-created', `${id} v1 created`);
@@ -73,6 +79,7 @@ export function applyCommand(current, command, actor = 'unknown') {
     if (!r) throw new Error('Requirement not found.');
     const title = clean(command.title, 180);
     if (title.length < 5 || title === r.title) throw new Error('Enter a changed requirement title.');
+    if (r.version === Number.MAX_SAFE_INTEGER) throw new Error('VERSION_CAPACITY_EXCEEDED');
     r.version += 1;
     r.title = title;
     r.versions.push({version: r.version, title, actor, createdAt: date});
@@ -84,9 +91,10 @@ export function applyCommand(current, command, actor = 'unknown') {
     if (!['passed', 'failed'].includes(command.result)) throw new Error('Choose Passed or Failed.');
     const title = clean(command.title, 180);
     if (title.length < 3) throw new Error('Provide a short evidence title.');
-    const url = clean(command.url, 500);
-    if (url && !/^https:\/\//i.test(url)) throw new Error('Evidence URL must use HTTPS.');
+    const url = String(command.url ?? '').trim();
+    if (url && (url.length > 500 || !validEvidenceUrl(url))) throw new Error('Evidence URL must be a valid HTTPS URL.');
     const id = `EV-${String(review.evidence.length + 101)}`;
+    if (review.evidence.some(e => e.id === id)) throw new Error('EVIDENCE_ID_ALLOCATION_COLLISION');
     review.evidence.push({ id, requirementId: r.id, version: r.version, title, url,
       result: command.result, actor, createdAt: date });
     event('evidence-added', `${id} ${command.result} for ${r.id} v${r.version}`);
@@ -109,6 +117,8 @@ export function applyCommand(current, command, actor = 'unknown') {
     event('approval-revalidation', `Prior approval requires revalidation because ${revalidationCause}`);
   }
   review.revision++;
+  const updatedIssues = inspectReviewRecords(review);
+  if (updatedIssues.length) throw new Error(`REVIEW_INSPECTION_REQUIRED: ${updatedIssues.join(', ')}`);
   return review;
 }
 
