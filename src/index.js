@@ -1,7 +1,8 @@
 import ResolverModule from '@forge/resolver';
 import api, { route } from '@forge/api';
 import { kvs } from '@forge/kvs';
-import { blankReview, applyCommand, summarize } from './domain.js';
+import { blankReview, applyCommand } from './domain.js';
+import { requireReviewForUse, storedReviewRow } from './review-read.js';
 
 // Forge's ESM bundler can expose the CommonJS resolver as a namespace object.
 // Unwrap its default export before constructing it (Node/Forge interop).
@@ -25,7 +26,8 @@ async function jiraIssue(issueKey) {
 resolver.define('getReview', async ({payload}) => {
   const issue = await jiraIssue(payload.issueKey);
   const data = await kvs.get(reviewKey(issue.id)) ?? blankReview(issue);
-  return {review:data, derived:summarize(data)};
+  const derived = requireReviewForUse(data, issue);
+  return {review:data, derived};
 });
 
 resolver.define('command', async ({payload,context}) => {
@@ -34,12 +36,14 @@ resolver.define('command', async ({payload,context}) => {
   const perms = await api.asUser().requestJira(route`/rest/api/3/mypermissions?issueKey=${issue.key}&permissions=EDIT_ISSUES`);
   if (!perms.ok || !(await perms.json()).permissions?.EDIT_ISSUES?.havePermission) throw new Error('EDIT_PERMISSION_REQUIRED');
   const original = await kvs.get(reviewKey(issue.id)) ?? blankReview(issue);
+  requireReviewForUse(original, issue);
   const updated = applyCommand(original, payload.command, context.accountId);
+  const derived = requireReviewForUse(updated, issue);
   // MVP uses sequential optimistic revision checking; true atomic CAS is pending.
   await kvs.set(reviewKey(issue.id), updated);
   const index = await kvs.get(indexKey(issue.projectId)) ?? [];
   if (!index.includes(issue.key)) await kvs.set(indexKey(issue.projectId), [...index, issue.key].slice(0, 200));
-  return {review:updated, derived:summarize(updated)};
+  return {review:updated, derived};
 });
 
 resolver.define('listReviews', async ({payload}) => {
@@ -55,8 +59,7 @@ resolver.define('listReviews', async ({payload}) => {
       const issue = await jiraIssue(issueKey);
       if (String(issue.projectId) !== String(project.id)) continue;
       const r = await kvs.get(reviewKey(issue.id));
-      if (r) { const state = summarize(r); rows.push({issueKey:r.issueKey,summary:r.summary,
-        status:state.status,covered:state.covered,mandatory:state.mandatory}); }
+      if (r !== undefined && r !== null) rows.push(storedReviewRow(r, issue));
     } catch { /* no disclosure of inaccessible issues */ }
   }
   return rows;

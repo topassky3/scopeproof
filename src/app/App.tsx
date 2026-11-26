@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, AlertTriangle, CheckCircle2, ArrowRight, X, Download, Save, Inbox } from 'lucide-react';
-import { applyCommand, exampleReview, summarize } from '../domain.js';
+import { applyCommand, exampleReview } from '../domain.js';
+import { readReviewForUse } from '../review-read.js';
 import { AppShell, PageHeader } from '../shared/layout/AppShell';
 import type { PageId } from '../shared/config/navigation';
 import { OverviewPage } from '../features/overview/OverviewPage';
@@ -40,7 +41,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [issueKey,setIssueKey]=useState(preview?'ACO-142':'');
   const [inputKey,setInputKey]=useState(preview?'ACO-142':'');
   const [projectKey,setProjectKey]=useState(preview?'ACO':'');
-  const [review,setReview]=useState<any>(preview?projectDemo(localUsername):null);
+  const [rawReview,setReview]=useState<any>(preview?projectDemo(localUsername):null);
   const [list,setList]=useState<any[]>([]);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
@@ -53,7 +54,10 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   const [result,setResult]=useState('passed');
   const [note,setNote]=useState('');
   const [mandatory,setMandatory]=useState(true);
-  const summary:any=review?summarize(review):null;
+  // Never give uninspected records to render helpers, actor lookup or commands.
+  const read = useMemo(() => rawReview === null ? null : readReviewForUse(rawReview), [rawReview]);
+  const review = read?.ok ? rawReview : null;
+  const summary:any = read?.summary ?? null;
   const intelligence = useMemo(() => review && !sessionReviews ? buildReviewIntelligence(review) : null, [review,sessionReviews]);
   const reportDiagnostic = useMemo(() => active === 'Reports' && intelligence ? buildReportDiagnostic(intelligence) : null, [active,intelligence]);
   const reportPublishable = Boolean(review && summary && reportDiagnostic && canPublishReport(review, summary, reportDiagnostic));
@@ -100,14 +104,18 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
     const clean=key.trim().toUpperCase(); if(!clean){setError('Enter a Jira issue key first.');return;}
     if(loadingReviewRef.current) return;
     loadingReviewRef.current = true;
-    setError('');setBusy(true);
-    try{ if(preview){setIssueKey(clean);setReview(projectDemo(localUsername));}
+    setError('');setNotice('');setModal(null);setBusy(true);
+    try{ if(preview){
+        const loaded = projectDemo(localUsername);setIssueKey(clean);setReview(loaded);
+        if (!readReviewForUse(loaded).ok) {setError('REVIEW_INSPECTION_REQUIRED');return;}
+      }
       else {
         const {invoke}=await import('@forge/bridge');
         // A remembered key is a hint, never an authorization or cached review.
         const data:any=await invoke('getReview',{issueKey:clean});
         const loaded=data?.review;
         if(!loaded || typeof loaded.issueKey !== 'string') throw new Error('Invalid review response');
+        if(!readReviewForUse(loaded).ok) throw new Error('REVIEW_INSPECTION_REQUIRED');
         const scope=selectionRef.current;
         if(restoring && !matchesProject(scope,loaded)) throw new Error('Review no longer belongs to this project');
         setIssueKey(loaded.issueKey);setInputKey(loaded.issueKey);setReview(loaded);
@@ -115,6 +123,8 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
       }
       setNotice('Review loaded.');
     }catch(e:any){
+      // A failed lookup must not leave an old review available for decisions or exports.
+      setReview(null);
       if(restoring) {
         forgetSelection(selectionRef.current,() => window.sessionStorage);
         setError('The previous review could not be restored. Open a Jira issue to continue.');
@@ -123,6 +133,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
   }
   async function change(type:string,props:Record<string,any>={}){
     if(!review)return false;
+    if (!readReviewForUse(review).ok) {setError('REVIEW_INSPECTION_REQUIRED');return false;}
     if ((type === 'approve' || type === 'reject') && buildReviewIntelligence(review).kind === 'unavailable') {
       setError('Inspect inconsistent records before recording another decision.'); return false;
     }
@@ -130,6 +141,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
     try {const command={type,expectedRevision:review.revision,...props};let updated:any;
       if(preview) {
         const stored = projectDemo(localUsername);
+        if (!readReviewForUse(stored).ok) {setReview(stored);throw new Error('REVIEW_INSPECTION_REQUIRED');}
         if (stored.revision !== review.revision) {
           setReview(stored);
           throw new Error('CONFLICT: Another tab updated this review. Your view has been refreshed; review changes before saving again.');
@@ -137,11 +149,14 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
         updated=applyCommand(review,command,'local-preview');
       }
       else {const {invoke}=await import('@forge/bridge');const response:any=await invoke('command',{issueKey:review.issueKey,command});updated=response.review;}
-      setReview(updated);setNotice('Saved successfully.');return true;
+      setReview(updated);
+      if (!readReviewForUse(updated).ok) throw new Error('REVIEW_INSPECTION_REQUIRED');
+      setNotice('Saved successfully.');return true;
     }catch(e:any){setError(e?.message??'Unable to save. Please reload.');return false;}
     finally{setBusy(false);}
   }
   function open(mode:'requirement'|'version'|'evidence'|'reject',id=''){
+    if (!review || decisionInspectionRequired) {setError('REVIEW_INSPECTION_REQUIRED');return;}
     setModal(mode);setEditorRevision(review?.revision ?? null);setTarget(id);setTitle('');setLink('');setNote('');setResult('passed');setMandatory(true);setError('');
   }
   async function submit(e:React.FormEvent){e.preventDefault();if(!review)return;
@@ -173,7 +188,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
       {error&&<div role="alert" className="error"><AlertTriangle size={17}/>{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
       {notice&&<div role="status" className="notice"><CheckCircle2 size={17}/>{notice}<button onClick={()=>setNotice('')} aria-label="Dismiss notification"><X size={15}/></button></div>}
       {!sessionReviews && <div className="lookup"><label htmlFor="issue-input">Jira issue</label><input id="issue-input" ref={issueInputRef} disabled={initializing} value={inputKey} onChange={e=>setInputKey(e.target.value.toUpperCase())} placeholder="e.g. ACO-142"/><button onClick={()=>fetchReview(inputKey)} disabled={busy || initializing}>Open review <ArrowRight size={16}/></button>{review&&<span className="lookup-current">{review.issueKey} · {review.summary}</span>}</div>}
-      {sessionReviews ? <LocalReviewsPage csrfToken={csrfToken!}/> : !review ? <div className="empty"><Inbox size={40}/><h2>Open a Jira issue to begin</h2><p>Use an issue you can access in this Jira project.</p></div> : <>
+      {sessionReviews ? <LocalReviewsPage csrfToken={csrfToken!}/> : read && !read.ok ? <div className="panel" role="alert"><h2>Inspection required</h2><p>This review contains inconsistent records. Coverage, decisions and exports are unavailable. Open another review or contact an administrator.</p></div> : !review ? <div className="empty"><Inbox size={40}/><h2>Open a Jira issue to begin</h2><p>Use an issue you can access in this Jira project.</p></div> : <>
         {active === 'Overview' && <OverviewPage review={review} summary={summary} list={list} onNavigate={setActive} onSelectIssue={fetchReview}
           onNewReview={() => { issueInputRef.current?.focus(); issueInputRef.current?.select(); }}
           onAddEvidence={(id) => open('evidence', id)} actorNames={actorNames} />}
@@ -192,7 +207,7 @@ export function App({ localUsername, csrfToken, onLogout, loggingOut, sessionErr
         </div>}
       </>}
     </AppShell>
-    {modal&&<div className="overlay" role="presentation"><form className="modal" onSubmit={submit} aria-label="Scopeproof editor"><div className="modal-head"><h2>{modal==='requirement'?'Add requirement':modal==='version'?'Publish new version':modal==='evidence'?'Add evidence':'Reject review'}</h2><button type="button" className="icon-btn" aria-label="Close" onClick={()=>setModal(null)}><X size={20}/></button></div>
+    {modal&&review&&<div className="overlay" role="presentation"><form className="modal" onSubmit={submit} aria-label="Scopeproof editor"><div className="modal-head"><h2>{modal==='requirement'?'Add requirement':modal==='version'?'Publish new version':modal==='evidence'?'Add evidence':'Reject review'}</h2><button type="button" className="icon-btn" aria-label="Close" onClick={()=>setModal(null)}><X size={20}/></button></div>
       {target&&<p className="muted">Target: {target}{modal==='evidence'&&review?` v${review.requirements.find((r:any)=>r.id===target)?.version??''}`:''}</p>}
       {modal!=='reject'&&<label className="field">{modal==='evidence'?'Evidence title':'Requirement description'}<input autoFocus required minLength={modal==='evidence'?3:5} maxLength={180} value={title} onChange={e=>setTitle(e.target.value)} placeholder={modal==='version'?'Describe the new requirement...':'Enter a clear, verifiable description'}/></label>}
       {modal==='requirement'&&<label className="check"><input type="checkbox" checked={mandatory} onChange={e=>setMandatory(e.target.checked)}/>Mandatory requirement</label>}
