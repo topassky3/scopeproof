@@ -1,62 +1,59 @@
-# Scopeproof — feature-first frontend architecture
+# ScopeProof — feature-first frontend architecture (RC1)
 
-Scopeproof is a Jira Forge Custom UI application. This refactor isolates the **shared design system** from the **functional screens** without changing its backend, domain rules, Forge manifest, or storage strategy.
+This document updates the earlier UI refactor notes to describe [`scopeproof-codegeist-rc1`](https://github.com/topassky3/scopeproof/tree/scopeproof-codegeist-rc1). The Forge Custom UI uses React 18, TypeScript, Vite and shared CSS.
+
+## Structure and responsibilities
 
 ```text
 src/
-  main.tsx                       # React bootstrap only
-  app/
-    App.tsx                      # Jira/Forge data orchestration and UI actions
-  shared/
-    layout/
-      AppShell.tsx               # Scopeproof sidebar, preview header, footer, page header
-    components/
-      ui.tsx                     # StatusBadge, StatCard, Panel, CoverageBar
-    config/
-      navigation.ts              # One navigation definition for all views
-    types/
-      review.ts                  # Shared frontend contracts
-    styles/
-      base.css                   # Existing common controls and table styles
-      design-system.css          # Visual tokens and responsive application shell
+  main.tsx                       React bootstrap
+  app/                           Jira/preview coordination and editor context
+  shared/                        Shared UI, contracts, styles and intelligence
   features/
-    overview/OverviewPage.tsx
-    reviews/ReviewsPage.tsx
-    reviews/ReviewWorkspace.tsx  # Shared issue list and review summary during MVP
-    requirements/RequirementsPage.tsx
-    evidence/EvidencePage.tsx
-    history/HistoryPage.tsx
-    reports/ReportsPage.tsx
-    settings/SettingsPage.tsx
-  domain.js                     # Authoritative validation/state rules (unchanged)
-  index.js                      # Forge resolver and KVS bridge (unchanged)
+    overview/                    Project status and selected review diagnosis
+    reviews/                     Review workspace and decision presentation
+    requirements/                Requirement versions and coverage
+    evidence/                    Evidence records and explicit evidence targets
+    history/                     Historical events and decisions
+    reports/                     JSON and PDF snapshot reports
+    settings/                    Read-only application policy
+  domain.js                      Domain rules and transitions
+  change-impact.js               Approval invalidation diagnosis
+  revalidation-planner.js        Recovery operations
+  review-integrity.js            Record integrity checks
+  review-read.js                 Safe read/consumer boundary
+  index.js                       Authorized Forge resolver
+  review-store.js                Conditional review persistence
+  ces-adapter.js                 CES operations and legacy reads
 ```
 
-## Rules for new work
+## Design rules
 
-1. **Shared belongs in `src/shared/`** only if at least two features use it or it defines application-wide layout/tokens.
-2. **Feature code belongs in `src/features/<name>/`.** Do not add new page JSX to `src/app/App.tsx`.
-3. `src/app/` coordinates fetching, local preview state and command dispatch. Feature components should receive data and callbacks as props.
-4. Preserve historical evidence semantics: **test result** (`passed`/`failed`) differs from **applicability** (`current`/`stale`).
-5. Forge-hosted UI must not render a fake global Jira header. `PreviewJiraHeader` is local-only.
-6. Never alter approval rules while doing a cosmetic refactor. Add domain tests in a separate feature branch for rule changes.
-7. Keep the current React+TypeScript and CSS stack. Avoid introducing routing, Redux, a new UI framework, or extra build dependencies during the hackathon MVP.
+1. Shared layout, types, components and application-wide styles belong in `src/shared/`. Keep feature-specific code in `src/features/<name>/`.
+2. `src/app/` coordinates data retrieval, command dispatch, browser preview behavior and editor context. Feature components receive data and callbacks rather than performing unauthorized storage access.
+3. Preserve the distinction between a historical test result and its current applicability to a requirement version.
+4. Use common integrity, diagnostic and decision projections across the relevant views. Full coverage is not a substitute for a new explicit approval.
+5. The evidence editor requires an explicit requirement target. Its issue, revision, version and description are validated against the loaded review. Selecting a historical evidence row must not silently select a target for a new evidence record.
+6. Filtered requirement and evidence detail panels follow visible rows; hidden selections must not drive the displayed detail.
+7. The Forge-hosted UI must not imitate the global Jira header. Local sample-data preview remains labeled and separate from real Jira data.
+8. Keep changes to approval rules separate from cosmetic work and cover them with domain and cross-view tests.
 
-## Refactor safety
+## Shared behavior in RC1
 
-This patch moves existing shared components and CSS under `src/shared/`; extracts seven screen entrypoints under `src/features/`; replaces the long `src/main.tsx` with a React bootstrap; and keeps backend domain/resolver files unchanged.
+- The overview, reviews and requirements flows distinguish initial approval, revalidation, rejection and approved states.
+- History preserves earlier evidence and decisions without presenting historical results as current coverage.
+- PDF and JSON exports use the selected loaded review revision and common diagnostic semantics, subject to publication integrity guards.
+- Responsive page headers and modal constraints are included in the candidate CSS. The frontend has been functionally tested in Jira; this does not claim exhaustive device or accessibility coverage.
+- The optional standalone Django and Next.js paths remain separate from the Forge submission runtime.
 
-### Validate in Windows PowerShell
+## Verification
 
 ```powershell
-npm.cmd ci
-npm.cmd test
-npm.cmd run build
-npm.cmd run dev
+npm ci
+npm run check
+npm run dev
 ```
 
-A local browser preview only proves UI behavior with sample data. Install and test Forge in a Jira development site separately.
+The RC1 core suite passed 287 tests and its production build succeeded. Local preview behavior is not proof of a deployed Jira permission or CES transaction. See [architecture](ARCHITECTURE.md) for server-side boundaries and the [README](../README.md) for acceptance results.
 
-## Next UX step
-
-Implement the screenshot-matching `OverviewPage`: attention banner, issue filters/list, selected issue panel, requirement coverage, change impact, and recent activity. Reuse shared UI and leave the other features independently evolvable.
+The images under `docs/design/` are design references, not necessarily screenshots of the deployed RC1 UI. Avoid introducing new dependencies or substantial visual changes solely for submission unless a verified blocking issue warrants them.
