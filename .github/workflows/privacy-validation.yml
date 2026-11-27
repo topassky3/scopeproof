@@ -1,0 +1,27 @@
+name: Privacy candidate validation
+on:
+  push:
+    branches: [feat/j19d4c-privacy-compliance]
+  pull_request:
+    paths:
+      - 'src/privacy/**'
+      - 'tests/j19-privacy.test.mjs'
+      - 'manifest.yml'
+      - '.github/workflows/privacy-validation.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=moderate
+      - run: npm install -g @forge/cli@15.0.0
+      - run: forge lint
+        env:
+          FORGE_DISABLE_ANALYTICS: 'true'

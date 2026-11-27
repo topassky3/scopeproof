@@ -13,7 +13,14 @@ modules:
       resource: frontend
       resolver:
         function: main-resolver
+  scheduledTrigger:
+    - key: scopeproof-privacy-audit
+      function: privacy-audit
+      interval: week
   function:
+    - key: privacy-audit
+      handler: privacy/forge-audit.handler
+      timeoutSeconds: 300
     - key: main-resolver
       handler: index.handler
 resources:
@@ -24,6 +31,7 @@ permissions:
     - read:jira-work
     - read:jira-user
     - storage:app
+    - report:personal-data
 app:
   id: ari:cloud:ecosystem::app/74c7ab33-fea7-4061-9ecc-1cd5a1b898dc
   runtime:
