@@ -1,29 +1,27 @@
-import { privacy } from '@forge/api';
-import { kvs, WhereConditions } from '@forge/kvs';
+import { privacy,getAppContext } from '@forge/api';
+import { kvs,WhereConditions,Filter,FilterConditions } from '@forge/kvs';
 import { createPrivacyInventoryAdapter } from './forge-storage.js';
-import { inventoryStorage, reportInventory } from './cycle.js';
+import { inventoryStorage } from './cycle.js';
+import { fixtureAllowed,runFixture } from './fixture.js';
 
-// Explicit non-production acceptance only. No real account reporting or
-// destructive operations are reachable from this scheduled function.
+// No real report or erasure path. Require platform development context and
+// exact installation opt-in for both modes, not merely an environment flag.
 export async function handler() {
   const mode=process.env.SCOPEPROOF_PRIVACY_MODE;
-  if (mode!=='inventory' && mode!=='fixture-report') return {statusCode:204};
+  if(mode!=='inventory'&&mode!=='fixture-report')return {statusCode:204};
   try {
-    if (mode==='inventory') {
+    const context=getAppContext();
+    if(!fixtureAllowed(context,process.env))return {statusCode:204};
+    if(mode==='inventory'){
       const result=await inventoryStorage(createPrivacyInventoryAdapter({kvs,WhereConditions}));
-      console.info('PRIVACY_INVENTORY_COUNTS', {accounts:result.accounts.length, records:result.records.length});
-    } else {
-      // Official Atlassian test accounts only, not the contents of storage.
-      const age='2020-01-01T00:00:00.000Z';
-      const actions=await reportInventory([
-        {accountId:'5be24ad8b1653240376955d2',updatedAt:age},
-        {accountId:'5be24ba3f91c106033269289',updatedAt:age}
-      ], rows=>privacy.reportPersonalData(rows));
-      console.info('PRIVACY_FIXTURE_COUNTS', {closed:actions.filter(x=>x.status==='closed').length,updated:actions.filter(x=>x.status==='updated').length});
+      console.info('PRIVACY_INVENTORY_COUNTS',{accounts:result.accounts.length,records:result.records.length});
+    }else{
+      const result=await runFixture({kvs,Filter,FilterConditions,privacy},context,process.env);
+      if(result.status==='held'){console.error('PRIVACY_FIXTURE_HELD');return {statusCode:500};}
+      console.info('PRIVACY_FIXTURE_STATE',result);
     }
     return {statusCode:204};
-  } catch {
-    // Never log response bodies, account identifiers, keys or review payloads.
+  }catch{
     console.error('PRIVACY_AUDIT_FAILED');
     return {statusCode:500};
   }

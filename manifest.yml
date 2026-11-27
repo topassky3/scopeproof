@@ -16,7 +16,7 @@ modules:
   scheduledTrigger:
     - key: scopeproof-privacy-audit
       function: privacy-audit
-      interval: week
+      interval: fiveMinute
   function:
     - key: privacy-audit
       handler: privacy/forge-audit.handler
@@ -58,3 +58,12 @@ app:
               - projectId
             range:
               - issueKey
+
+      - name: scopeproof-privacy-job
+        attributes:
+          revision:
+            type: string
+          token:
+            type: string
+          payload:
+            type: any
