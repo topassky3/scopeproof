@@ -54,26 +54,36 @@ test('Privacy journal: interrupted remediation is held and no false acknowledgem
 test('Privacy journal: invalid initial batches refused',()=>{
  for(const rows of [[],[accounts[0],accounts[0]],[{...accounts[0],updatedAt:'bad'}]])assert.throws(()=>newBatch(rows,now),/BATCH_INVALID/);
 });
-const env={SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION:'synthetic-installation'};
-const context={environmentType:'DEVELOPMENT',installationAri:'synthetic-installation'};
+const installId='00000000-0000-0000-0000-000000000001';
+const env={SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION:installId};
+const context={environmentType:'DEVELOPMENT',installationAri:{installationId:installId,toString:()=> 'ari:cloud:ecosystem::installation/'+installId}};
 test('Privacy fixture: platform development and exact installation required',()=>{
  assert.equal(fixtureAllowed(context,env),true);
  for(const c of [{...context,environmentType:'PRODUCTION'},{...context,installationAri:'other'},{}])assert.equal(fixtureAllowed(c,env),false);
  assert.equal(fixtureAllowed(context,{}),false);
 });
+test('Privacy fixture: documented InstallationAri object, malformed and mismatched ARI fail closed',()=>{
+ for(const ari of [installId,null,{installationId:installId},{installationId:installId,toString:()=>installId},
+  {installationId:'00000000-0000-0000-0000-000000000002',toString:context.installationAri.toString},
+  {installationId:installId,toString(){throw Error('bad context')}}]){
+   assert.equal(fixtureAllowed({...context,installationAri:ari},env),false);
+ }
+ assert.equal(fixtureAllowed(context,{SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION:' '+installId}),false);
+ assert.equal(fixtureAllowed(context,{SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION:context.installationAri.toString()}),false);
+});
 function forgeMock(){
- const data=new Map(),legacy=new Map(),calls=[];
+ const data=new Map(),legacy=new Map(),calls=[],writes=[];
  class Filter{constructor(){this.values=[]}and(k,v){this.values.push([k,v]);return this}}
  const entity={
   async get(k){return structuredClone(data.get(k))},
-  async set(k,v,o){if(o?.keyPolicy==='FAIL_IF_EXISTS'&&data.has(k))throw Error('exists');data.set(k,structuredClone(v));},
+  async set(k,v,o){if(o?.keyPolicy==='FAIL_IF_EXISTS'&&data.has(k))throw Error('exists');data.set(k,structuredClone(v));writes.push({store:'ces',key:k,value:structuredClone(v)});},
   async delete(k){data.delete(k)}
  };
  const kvs={entity(n){assert.equal(n,JOB_ENTITY);return entity;},async get(k){assert.ok(k.startsWith('privacy-fixture:'));return structuredClone(legacy.get(k));},
- async set(k,v){assert.ok(k.startsWith('privacy-fixture:'));legacy.set(k,structuredClone(v))},async delete(k){legacy.delete(k)},
+ async set(k,v){assert.ok(k.startsWith('privacy-fixture:'));legacy.set(k,structuredClone(v));writes.push({store:'legacy',key:k,value:structuredClone(v)})},async delete(k){legacy.delete(k)},
  transact(){return {set(k,v,o){return {async execute(){const cur=data.get(k);if(!o.conditions.values.every(([x,y])=>cur?.[x]===y))throw Error('conflict');data.set(k,structuredClone(v));}}}}}};
  const deps={kvs,Filter,FilterConditions:{equalTo:x=>x},privacy:{async reportPersonalData(rows){calls.push(rows);return [{accountId:CLOSED,status:'closed'}]}}};
- return {data,legacy,calls,deps};
+ return {data,legacy,calls,deps,writes};
 }
 test('Privacy fixture: actual handler dependencies exercise isolated CES and KVS, once',async()=>{
  const m=forgeMock();
@@ -92,4 +102,23 @@ test('Privacy fixture: unexpected API response blocks without touching fixture r
 test('Privacy fixture: separate installation stores never share journal or report',async()=>{
  const a=forgeMock(),b=forgeMock();await runFixture(a.deps,context,env,now);
  assert.equal(b.data.size,0);assert.equal(b.calls.length,0);
+});
+
+test('Privacy fixture: stored synthetic actor is present before and absent after in both isolated stores',async()=>{
+ const m=forgeMock();await runFixture(m.deps,context,env,now);await runFixture(m.deps,context,env,now);
+ for(const store of ['ces','legacy']){
+   const writes=m.writes.filter(x=>x.store===store&&x.key==='privacy-fixture:v2:'+store);
+   assert.equal(writes.length,2);
+   assert.ok(JSON.stringify(writes[0].value).includes(CLOSED));
+   assert.ok(!JSON.stringify(writes[1].value).includes(CLOSED));
+   assert.ok(JSON.stringify(writes[1].value).includes(ACTIVE));
+ }
+});
+test('Privacy fixture: occupied synthetic key holds without overwriting',async()=>{
+ const m=forgeMock();await runFixture(m.deps,context,env,now);
+ const key='privacy-fixture:v2:legacy',sentinel={fixture:'interrupted'};
+ m.legacy.set(key,sentinel);
+ assert.equal((await runFixture(m.deps,context,env,now)).status,'held');
+ assert.deepEqual(m.legacy.get(key),sentinel);
+ assert.equal(m.writes.filter(x=>x.key==='privacy-fixture:v2:ces'||x.key===key).length,0);
 });

@@ -9,10 +9,18 @@ const ids=new Set([ACTIVE,CLOSED]);
 const age='2020-01-01T00:00:00.000Z';
 const accounts=[{accountId:ACTIVE,updatedAt:age},{accountId:CLOSED,updatedAt:age}];
 const cesKey='privacy-fixture:v2:ces',legacyKey='privacy-fixture:v2:legacy';
+const installationIdPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export function fixtureAllowed(context,env) {
-  return typeof context?.environmentType==='string'&&context.environmentType.toLowerCase()==='development'&&
-    typeof env.SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION==='string'&&env.SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION.length>0&&
-    context.installationAri===env.SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION;
+  // getAppContext returns an InstallationAri object, not a string.
+  // Require the platform UUID AND canonical ARI to match the opt-in UUID.
+  const expected=env?.SCOPEPROOF_PRIVACY_FIXTURE_INSTALLATION;
+  if(typeof expected!=='string'||!installationIdPattern.test(expected)||
+     typeof context?.environmentType!=='string'||context.environmentType.toUpperCase()!=='DEVELOPMENT')return false;
+  try {
+    const ari=context.installationAri;
+    return !!ari&&typeof ari==='object'&&ari.installationId===expected&&
+      typeof ari.toString==='function'&&ari.toString()==='ari:cloud:ecosystem::installation/'+expected;
+  } catch { return false; }
 }
 function reviewFixture(){
   let r=blankReview({id:'900000001',key:'FIXTURE-1',summary:'Synthetic privacy test',projectId:'900000001',projectKey:'FIXTURE'});
@@ -28,12 +36,21 @@ export function createFixtureRemediator({kvs}) {
     if(!ids.has(action?.accountId)||!['closed','updated'].includes(action.status))throw Error('PRIVACY_FIXTURE_TARGET');
     const r=reviewFixture(), next=redactActorReferences(r,[action.accountId]).review;
     if(summarize(next).status!=='approved'||actorInventory(next).has(action.accountId))throw Error('PRIVACY_FIXTURE_REDACTION');
-    // Persist only the redacted synthetic result; verify both stores by
-    // direct read and delete those fixed fixture artifacts after validation.
-    const wrapped={revision:String(next.revision),token:'synthetic-fixture',payload:next};
+    // Only the journal claim may use these dedicated synthetic keys.
+    // A leftover means an interrupted prior run: never silently overwrite it.
+    if((await ces().get(cesKey))!=null||(await kvs.get(legacyKey))!=null)throw Error('PRIVACY_FIXTURE_KEY_OCCUPIED');
+    const before={revision:String(r.revision),token:'synthetic-fixture-before',payload:r};
+    const wrapped={revision:String(next.revision),token:'synthetic-fixture-after',payload:next};
+    await ces().set(cesKey,before,{keyPolicy:'FAIL_IF_EXISTS'});
+    await kvs.set(legacyKey,r);
+    if(!sameRecordValue(await ces().get(cesKey),before)||!sameRecordValue(await kvs.get(legacyKey),r))throw Error('PRIVACY_FIXTURE_SEED_READBACK');
+    // This verifies a stored synthetic record was replaced and read back.
+    // It does not establish CAS safety for arbitrary legacy review keys.
     await ces().set(cesKey,wrapped);
     await kvs.set(legacyKey,next);
-    if(!sameRecordValue(await ces().get(cesKey),wrapped)||!sameRecordValue(await kvs.get(legacyKey),next))throw Error('PRIVACY_FIXTURE_READBACK');
+    const cesAfter=await ces().get(cesKey),legacyAfter=await kvs.get(legacyKey);
+    if(!sameRecordValue(cesAfter,wrapped)||!sameRecordValue(legacyAfter,next)||
+       actorInventory(cesAfter.payload).has(action.accountId)||actorInventory(legacyAfter).has(action.accountId))throw Error('PRIVACY_FIXTURE_READBACK');
     await ces().delete(cesKey);
     await kvs.delete(legacyKey);
     if((await ces().get(cesKey))!=null||(await kvs.get(legacyKey))!=null)throw Error('PRIVACY_FIXTURE_CLEANUP');

@@ -11,7 +11,10 @@ export async function handler() {
   if(mode!=='inventory'&&mode!=='fixture-report')return {statusCode:204};
   try {
     const context=getAppContext();
-    if(!fixtureAllowed(context,process.env))return {statusCode:204};
+    if(!fixtureAllowed(context,process.env)){
+      console.info('PRIVACY_QA_SKIPPED');
+      return {statusCode:204};
+    }
     if(mode==='inventory'){
       const result=await inventoryStorage(createPrivacyInventoryAdapter({kvs,WhereConditions}));
       console.info('PRIVACY_INVENTORY_COUNTS',{accounts:result.accounts.length,records:result.records.length});
