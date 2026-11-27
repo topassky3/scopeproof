@@ -11,7 +11,7 @@ const groups = {
   'approval-revalidation':'revalidation',
 };
 const unique = records => records.length === 1 ? records[0] : null;
-const sameRecord = (event, record) => Boolean(event.actor && event.createdAt &&
+const sameRecord = (event, record) => Boolean(event.actor && event.actor !== 'privacy-erased' && event.createdAt &&
   event.actor === record.actor && event.createdAt === record.createdAt);
 const text = value => typeof value === 'string' ? value : '';
 

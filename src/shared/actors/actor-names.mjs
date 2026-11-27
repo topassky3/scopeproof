@@ -32,6 +32,7 @@ export function extractUserNames(result, requestedIds) {
 
 export function actorLabel(actor, names = {}) {
   if (!actor) return 'Not recorded';
+  if (actor === 'privacy-erased' || /^privacy-erased\/[a-f0-9-]{36}$/.test(actor)) return 'Actor erased';
   const name = names[actor];
   if (typeof name === 'string' && name.trim()) return name.trim();
   if (actor === 'demo' || actor === 'local-preview') return 'Demo user';

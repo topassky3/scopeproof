@@ -67,6 +67,7 @@ export async function reportInventory(accounts, report) {
 export async function applyClosedAccounts(io, actions, records) {
   if (io.exclusiveMaintenance !== true || typeof io.replaceIfRevision !== 'function') throw Error('PRIVACY_MAINTENANCE_REQUIRED');
   if (!Array.isArray(actions) || actions.some(a=>!isAccountId(a?.accountId)||!['closed','updated'].includes(a.status))) throw Error('PRIVACY_INVALID_ACTION');
+  if (new Set(actions.map(a=>a.accountId)).size!==actions.length) throw Error('PRIVACY_DUPLICATE_ACTION');
   const ids=actions.filter(a=>a.status==='closed').map(a=>a.accountId);
   let changed=0, removed=0;
   for (const {source,key} of records) {

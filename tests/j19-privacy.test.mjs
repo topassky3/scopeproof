@@ -4,6 +4,8 @@ import { blankReview, applyCommand, summarize } from '../src/domain.js';
 import { actorInventory, redactActorReferences, ERASED_ACTOR } from '../src/privacy/review-data.js';
 import { inventoryStorage, reportInventory, applyClosedAccounts } from '../src/privacy/cycle.js';
 import { createPrivacyInventoryAdapter } from '../src/privacy/forge-storage.js';
+import { eventDetail } from '../src/features/history/history-model.mjs';
+import { actorLabel, collectActorIds } from '../src/shared/actors/actor-names.mjs';
 
 const A='synthetic:alpha', B='synthetic:beta';
 const mk=(id='1')=>{
@@ -36,7 +38,7 @@ test('Privacy: erase attribution without changing approval semantics',()=>{
   assert.equal(summarize(next.review).status,'approved');
   assert.deepEqual(next.review.approvals[0].snapshot,r.approvals[0].snapshot);
   assert.deepEqual(next.review.evidence,r.evidence);
-  assert.equal(next.review.approvals[0].actor,ERASED_ACTOR);
+  assert.ok(next.review.approvals[0].actor.startsWith(ERASED_ACTOR));
   assert.ok(!actorInventory(next.review).has(A));assert.ok(actorInventory(next.review).has(B));
   assert.equal(redactActorReferences(next.review,[A]).removed,0);
 });
@@ -88,4 +90,29 @@ test('Privacy: Forge inventory adapter queries by-key, rereads and rejects malfo
   assert.deepEqual(await io.listPage('legacy'),{keys:['review:1'],nextCursor:undefined});
   assert.ok(calls.some(x=>x[0]==='by-key'));await assert.rejects(io.read('ces','review:1'),/INVALID_WRAPPER/);
   assert.deepEqual(await io.read('legacy','review:1'),{review:r});
+});
+
+test('Privacy: opaque per-operation marker preserves previously verified decision links',()=>{
+  const r=mk(),e=r.events.find(e=>e.type==='review-approved'),before=eventDetail(r,e);
+  assert.equal(before.kind,'decision');
+  const result=redactActorReferences(r,[A]).review,after=result.events.find(item=>item.id===e.id);
+  assert.deepEqual(eventDetail(result,after),before);
+  assert.equal(actorLabel(after.actor),'Actor erased');
+  assert.ok(!collectActorIds(result).includes(after.actor));
+  assert.ok(!actorInventory(result).has(after.actor));
+  assert.equal(after.actor,result.approvals[0].actor);
+});
+test('Privacy: erased ambiguous history never acquires a false attribution',()=>{
+  const r=mk();const e=r.events.find(e=>e.type==='review-approved');r.events.push({...e,id:'duplicate-event'});
+  assert.equal(eventDetail(r,e).kind,'unavailable');
+  const n=redactActorReferences(r,[A]).review;
+  for(const item of n.events.filter(x=>x.type==='review-approved')) {
+    assert.equal(item.actor,ERASED_ACTOR);assert.equal(eventDetail(n,item).kind,'unavailable');
+  }
+  assert.equal(summarize(n).status,'approved');
+});
+test('Privacy: conflicting duplicate actions fail before any mutation',async()=>{
+  const m=mock(),i=await inventoryStorage(m);
+  await assert.rejects(applyClosedAccounts(m,[{accountId:A,status:'closed'},{accountId:A,status:'updated'}],i.records),/DUPLICATE_ACTION/);
+  assert.equal(m.writes,0);
 });

@@ -15,10 +15,10 @@ See https://developer.atlassian.com/platform/forge/user-privacy-guidelines/ and 
 ## Implemented candidate
 - Read-only full key-prefix enumeration over CES by-key and legacy KVS, direct reread, validation and explicit bounded failure; no UI project index dependency.
 - Four actor paths, oldest event age as conservative retrieval proxy for structured IDs recorded at command time; malformed data fails closed. Per-run deduplication and batches of at most 90, strict response validation.
-- Pure redaction of closed structured actor references with revision advancement and preserved approval snapshots. No account-derived replacement; erased actor marker is not a Jira account. The marker may affect legacy event-to-decision attribution; review before use. Free-text and indirect identifiers are not erased by this function.
+- Pure redaction of closed structured actor references with revision advancement and preserved approval snapshots. No account-derived replacement; erased actor marker is not a Jira account. Verified one-to-one history links receive a random per-operation marker shared only by their original event and record; ambiguous links remain unavailable. Erased markers never resolve a Jira profile. This preserves business records without guessing identity. Free-text and indirect identifiers are not erased by this function.
 - Synthetic maintenance executor requires exclusive maintenance and injected conditional replacement for both stores. Updated status is routed to review, not falsely acknowledged. No live storage write adapter is provided.
 - Weekly Forge function and permission are candidate-only. Default off; modes inventory (counts only) and fixture-report (official test accounts only). Neither mode reports stored real accounts nor erases data. Do not enable fixture mode repeatedly; verify in a dedicated development environment and unset afterward.
-- Eleven new tests and a separate non-deployment CI workflow for requested checks.
+- Fourteen new tests and a separate non-deployment CI workflow for requested checks.
 
 ## Release blockers
 1. Verify actual SDK query/index syntax and consistency on a dedicated development installation; eventual queries cannot certify absence of records. Need a durable installation-scoped inventory/registration mechanism for new records and old copies; browser session preferences need an explicit lifecycle.
@@ -28,3 +28,7 @@ See https://developer.atlassian.com/platform/forge/user-privacy-guidelines/ and 
 5. Verify npm ci, full suite, audit, Forge lint and app identity; CI results must be attached when observed. No production rollout or external sharing until all gates pass.
 
 No live personal data was accessed or deleted. No compliance certification is claimed.
+
+## Observed CI — first candidate 209df8d
+- [Privacy candidate validation](https://github.com/topassky3/scopeproof/actions/runs/46065733743): npm ci PASS; npm run check PASS (298 tests, 0 failures, Vite build PASS); npm audit PASS (0 vulnerabilities reported); Forge CLI install PASS; forge lint blocked by missing login (exit 1). The lint did not reach manifest validation. No credentials were added to CI.
+- The subsequent history-link hardening adds three tests; verify the new head independently. The gate remains NO-GO for external sharing.
